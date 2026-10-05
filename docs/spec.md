@@ -207,6 +207,8 @@ Self-signed `.crx` files are not installable on Mac/Windows Chrome without enter
 
 ## Known risks
 
+User-facing limitations are listed in the README ("Limitations"); keep that section in sync when a decision here changes what users see.
+
 - **Clipboard (verified):** `navigator.clipboard.writeText` fails in the panel ("Document is not focused"); `document.execCommand('copy')` with a temporary textarea works. The path footer's Copy button tries the former and falls back to the latter. Native Cmd+C in the editor is unaffected.
 - Bodies of old requests may be evicted by DevTools; show the "body no longer available" state.
 
