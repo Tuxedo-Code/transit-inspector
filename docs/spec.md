@@ -32,18 +32,22 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
   The whole UI therefore runs in a normal browser tab with hot reload and is testable without DevTools. Only the DevTools source needs DevTools to test.
 - **Sample data** is HAR files with content, exported from the Network panel (right-click > "Save all as HAR with content"). HAR is the same data model `chrome.devtools.network` returns, so both sources share one parser. Real traffic from an app becomes sample data in one click. Sample files live in the repo for tests and development.
 
-### Capture timing (open question, resolve in the spike task)
+### Capture and navigation (verified in T02, Chrome 154)
 
-The panel page only starts when its tab is first clicked, while `devtools.html` runs as soon as DevTools opens. Options:
-
-1. Backfill on panel start with `chrome.devtools.network.getHAR()`. Verify that its entries support `getContent()`.
-2. Capture in the devtools page from DevTools open and hand the buffer to the panel when it starts.
-
-Pick whichever reliably captures requests made between DevTools opening and the panel first being shown.
+- Everything lives in the panel; `devtools.html` only registers the panel.
+- **On panel start:** subscribe to `onRequestFinished`, then call `getHAR()` to backfill.
+  - `getHAR()` returns every request DevTools has recorded since it opened, even if neither the Network panel nor our panel was open yet.
+  - Its entries support `getContent()`.
+  - Deduplicate entries seen by both by `startedDateTime` + method + URL.
+- **`onRequestFinished`** delivers requests in finish order, so sort by `startedDateTime`.
+- **Navigation: mirror DevTools' own log.** On `onNavigated`, re-read `getHAR()` and rebuild the list from it.
+  - `onNavigated` also fires on SPA `history.pushState` and several times per reload, so it cannot mean "clear" by itself.
+  - `getHAR()` keeps entries across `pushState` and drops them on a real page load, exactly like the Network panel.
+- Request payload: `request.postData.text`. Response body: `getContent((content, encoding))`, where `encoding` is `""` for text.
 
 ## Request capture rules
 
-- **Only Fetch/XHR requests are listed** (DevTools resource types `fetch` and `xhr`, e.g. HAR `_resourceType`). Everything else is ignored entirely.
+- **Only Fetch/XHR requests are listed** (HAR `_resourceType` is `"fetch"` or `"xhr"`; verified). Everything else is ignored entirely.
 - **Transit detection** (either is enough):
   - content type `application/transit+json` (any parameters, e.g. charset), or
   - body sniffing: valid JSON containing Transit markers (`"^ "`, `"~:"`, `"~#"`, etc.), to catch Transit served as `application/json`.
@@ -51,11 +55,11 @@ Pick whichever reliably captures requests made between DevTools opening and the 
   Detection applies to the request payload and the response body independently.
 - Fetch/XHR requests with no Transit in either direction are **listed grayed out and not selectable**.
 - `application/transit+msgpack` is listed grayed out with the label "transit+msgpack (not supported)".
-- **Order:** by request start time (browser side), like the Network panel. A request appears when it finishes, inserted at its start-time position.
+- **Order:** by request start time (browser side), like the Network panel. A request appears when it finishes, inserted at its start-time position. HAR start times have millisecond precision; requests started in the same millisecond keep the order DevTools lists them in (arrival order until the next `getHAR()` rebuild).
 - **Failed requests:**
   - 4xx/5xx responses with a Transit body are decoded like any other response;
   - requests that never got a response (network error, CORS, cancelled) are listed grayed.
-- **Navigation clears the list.** "Preserve log" is a later feature.
+- **A real page load clears the list; SPA route changes do not** (see "Capture and navigation"). "Preserve log" is a later feature; mirroring `getHAR()` may already follow the Network panel's own "Preserve log" checkbox (unverified).
 - **Memory:**
   - Fetch the response body for every Fetch/XHR response whose content type is Transit, JSON-like or missing.
   - Sniff only the first few KB for Transit markers.
@@ -75,6 +79,8 @@ Pick whichever reliably captures requests made between DevTools opening and the 
   - `#uuid "..."`, `#inst "..."`, URIs;
   - vectors, lists, sets, maps (including non-scalar keys);
   - tagged values from app-specific handlers as `#tag value`.
+- Map entries and set elements keep their order on the wire.
+- Known limit: a float sent as `1.0` arrives from JSON as `1` and prints as an integer. Transit itself does not distinguish them in JSON.
 - The printer also produces a **path index**: for each printed node, its text range and its EDN path (e.g. `[:user :orders 0 :id]`). This powers the path footer.
   - Set elements use the element itself as the path step.
   - Elements inside lists use their position, even though `get-in` cannot index lists.
@@ -105,7 +111,7 @@ Pick whichever reliably captures requests made between DevTools opening and the 
 ### Detail view
 
 - **Header bar:** method, full URL, status code.
-- **Switch:** "Request payload" | "Response body". Requests without a body show an empty state.
+- **Switch:** "Payload" | "Response" (the Network panel's own tab names; short enough for DevTools docked to the side). Requests without a body show an empty state.
 - A request is selectable if either direction is Transit. A non-Transit body in the other direction is shown in the raw pane, and the EDN pane says "Not Transit".
 - **View mode:** EDN only (default) | side by side | Transit only.
   - Applies to both payload and response.
@@ -138,7 +144,7 @@ Pick whichever reliably captures requests made between DevTools opening and the 
   - no logo or banner; one thin toolbar row;
   - DevTools fonts and sizes (UI about 12px system font, code in monospace);
   - plain CSS with variables, no UI component library.
-- **Theme:** follow the DevTools theme (`chrome.devtools.panels.themeName`). With DevTools set to "System preference" this follows the OS. All colors are CSS variables with a light and a dark set.
+- **Theme:** follow the DevTools theme. `chrome.devtools.panels.themeName` is `"default"` (light) or `"dark"`, and `chrome.devtools.panels.setThemeChangeHandler` reports live changes (both verified). With DevTools set to "System preference" this follows the OS. All colors are CSS variables with a light and a dark set.
 - **Highlighting** uses DevTools' own object-viewer colors (Console/Network previews), in both themes.
 
 ## Stack and tooling
@@ -150,10 +156,10 @@ Pick whichever reliably captures requests made between DevTools opening and the 
 - `package.json` holds the only version number. The source `manifest.json` (project root) has no version; a small build plugin (`build/manifest.ts`) emits it into `dist/` with the version filled in.
 - No custom icons in v1; Chrome shows a default.
 - Preact for UI.
-- CodeMirror 6 for both panes: JSON language, Clojure/EDN language (e.g. `@nextjournal/lang-clojure`), fold gutter, search, read-only, lint diagnostics for problem marks.
+- CodeMirror 6 for both panes: `@codemirror/lang-json`, `@nextjournal/lang-clojure` for EDN, fold gutter, search, read-only, lint diagnostics for problem marks. Verified to run under the extension CSP. CodeMirror's default colors are unreadable on DevTools dark, so the panes need our own theme.
 - `transit-js` for decoding.
 - Vitest for unit tests, Biome for lint and format.
-- A Web Worker for decoding is optional, only if measured delays are visible.
+- No Web Worker: a 3 MB Transit response decodes, prints and opens in about 100-150 ms on the main thread (measured in T10). Revisit only if real payloads feel slow.
 
 npm scripts:
 
@@ -163,7 +169,7 @@ npm scripts:
 | `dev:ext` | `vite build --watch` into `dist/` (reload the extension and reopen DevTools to see changes) |
 | `build` | typecheck plus production build into `dist/` |
 | `test` | Vitest |
-| `test:e2e` | build plus Puppeteer smoke test |
+| `test:e2e` | build, install Chrome for Testing if missing, run the Puppeteer tests (opens a Chrome window) |
 | `lint` | Biome check |
 | `package` | build, then zip `dist/` to `transit-debugger-<version>.zip` |
 
@@ -192,17 +198,16 @@ Self-signed `.crx` files are not installable on Mac/Windows Chrome without enter
   - take screenshots in light and dark to check that things are visible and correct.
 
   This is the main UI test layer. It is reliable because no DevTools window is involved.
-- **Real DevTools smoke test, automated if feasible (Puppeteer + Chrome for Testing**; Chrome-branded builds no longer accept `--load-extension`):
-  - load `dist/` unpacked and serve a test page making Transit and non-Transit fetch/XHR calls;
-  - open DevTools and the Transit tab;
-  - check that a request appears and decodes.
-
-  Clicking into DevTools' own window can be fragile across Chrome versions. If this test is flaky across 5 runs, replace it with a short manual checklist in the README and record that here.
+- **Real DevTools tests, automated (feasible; decided in T03):**
+  - Puppeteer launches a visible Chrome for Testing (DevTools does not open headless) with `dist/` loaded and DevTools docked to the bottom. Docked to the side, DevTools is too narrow and hides the Transit tab in its "»" overflow.
+  - A local test server serves a page making Transit and non-Transit fetch/XHR calls.
+  - The test clicks the Transit tab, then drives and inspects the panel through a CDP session on the panel's own target, with `chrome.devtools.*` available.
+  - Passed 8 runs in a row when set up. If it becomes flaky, fix it or fall back to a short manual checklist in the README.
+- Both layers run with `npm run test:e2e` (Vitest, `e2e/*.e2e.ts`). Screenshots go to `e2e/screenshots/` (gitignored) for review.
 
 ## Known risks
 
-- `navigator.clipboard.writeText` can fail inside DevTools extension panels. The path footer's Copy button needs the `document.execCommand('copy')` fallback; verify in real DevTools. Native Cmd+C in the editor is unaffected.
-- DevTools may not notify extensions of theme changes while open. Acceptable: the theme applies on the next DevTools open.
+- **Clipboard (verified):** `navigator.clipboard.writeText` fails in the panel ("Document is not focused"); `document.execCommand('copy')` with a temporary textarea works. The path footer's Copy button tries the former and falls back to the latter. Native Cmd+C in the editor is unaffected.
 - Bodies of old requests may be evicted by DevTools; show the "body no longer available" state.
 
 ## Later (not v1)

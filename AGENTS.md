@@ -18,6 +18,7 @@ Toolchain: `mise install && npm ci` (mise pins Node).
 - `npm run dev:ext`: rebuild `dist/` on change; reload the extension and reopen DevTools to see it
 - `npm run dev`: panel UI in a normal tab with hot reload
 - `npm test`: unit tests (Vitest)
+- `npm run test:e2e`: build + Puppeteer tests in Chrome for Testing (opens a visible Chrome window); screenshots land in `e2e/screenshots/`
 - `npm run lint` / `npm run format`: Biome check / fix
 - `npm run typecheck`: TypeScript only
 - `npm run package`: build and zip `dist/` for sharing

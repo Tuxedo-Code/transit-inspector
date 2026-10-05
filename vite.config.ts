@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
-import { manifestPlugin } from "./build/manifest";
+import { manifestPlugin } from "./build/manifest.ts";
 
 const root = import.meta.dirname;
 
@@ -11,6 +11,8 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     modulePreload: { polyfill: false },
+    // Loaded from disk by the extension, not over the network: CodeMirror's size is fine.
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       input: {
         devtools: resolve(root, "devtools.html"),

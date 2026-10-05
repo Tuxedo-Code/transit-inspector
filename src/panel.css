@@ -1,30 +1,491 @@
+/*
+ * Colors and sizes are DevTools' own (measured from the Network panel in Chrome 154, light and dark),
+ * so the panel looks built in. The theme comes from DevTools via [data-theme]; outside DevTools it
+ * falls back to prefers-color-scheme.
+ */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+  --ui-font-family: system-ui, sans-serif;
+  --code-font-family: monospace;
+  --code-font-size: 11px;
+
   --bg: #ffffff;
-  --fg: #1f1f1f;
-  --fg-muted: #5f6368;
+  --fg: #191b1f;
+  --fg-subtle: #656773;
+  --fg-disabled: rgb(31 31 31 / 38%);
+  --row-odd: #f7f9fd;
+  --divider: #d3e3fd;
+  --toolbar-bg: #ffffff;
+  --hover: rgb(25 27 31 / 6%);
+  --selected-row: #d3e3fd;
+  --neutral-container: #e8eaf2;
+  --primary: #0b57d0;
+  --error: #b3261e;
+  --selection: #a8c7fa;
+  --selection-match: rgb(11 87 208 / 15%);
+  --search-match: rgb(253 243 170);
+  --search-match-current: rgb(250 204 21);
+
+  --token-key: rgb(142 0 75);
+  --token-string: #dc362e;
+  --token-number: rgb(11 87 208);
+  --token-atom: rgb(6 46 111);
+  --token-null: #656773;
+  --token-tag: rgb(185 0 99);
+  --token-symbol: #191b1f;
+  --token-punctuation: #42444d;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #22242a;
+  --fg: #dadbe5;
+  --fg-subtle: #7f818c;
+  --fg-disabled: rgb(227 227 227 / 38%);
+  --row-odd: #22252a;
+  --divider: #4e5059;
+  --toolbar-bg: #22242a;
+  --hover: rgb(249 250 252 / 10%);
+  --selected-row: #004a77;
+  --neutral-container: #363840;
+  --primary: #a8c7fa;
+  --error: #f2b8b5;
+  --selection: #047db7;
+  --selection-match: rgb(168 199 250 / 18%);
+  --search-match: rgb(92 67 0);
+  --search-match-current: rgb(138 101 0);
+
+  --token-key: rgb(124 172 248);
+  --token-string: rgb(92 213 251);
+  --token-number: rgb(196 238 208);
+  --token-atom: rgb(196 238 208);
+  --token-null: #7f818c;
+  --token-tag: rgb(191 103 255);
+  --token-symbol: #c2c3cc;
+  --token-punctuation: #c2c3cc;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #282828;
-    --fg: #e3e3e3;
-    --fg-muted: #9aa0a6;
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #22242a;
+    --fg: #dadbe5;
+    --fg-subtle: #7f818c;
+    --fg-disabled: rgb(227 227 227 / 38%);
+    --row-odd: #22252a;
+    --divider: #4e5059;
+    --toolbar-bg: #22242a;
+    --hover: rgb(249 250 252 / 10%);
+    --selected-row: #004a77;
+    --neutral-container: #363840;
+    --primary: #a8c7fa;
+    --error: #f2b8b5;
+    --selection: #047db7;
+    --selection-match: rgb(168 199 250 / 18%);
+    --search-match: rgb(92 67 0);
+    --search-match-current: rgb(138 101 0);
+
+    --token-key: rgb(124 172 248);
+    --token-string: rgb(92 213 251);
+    --token-number: rgb(196 238 208);
+    --token-atom: rgb(196 238 208);
+    --token-null: #7f818c;
+    --token-tag: rgb(191 103 255);
+    --token-symbol: #c2c3cc;
+    --token-punctuation: #c2c3cc;
   }
 }
 
+* {
+  box-sizing: border-box;
+}
+
 html,
-body {
+body,
+#app {
   margin: 0;
   height: 100%;
   background: var(--bg);
   color: var(--fg);
-  font:
-    12px system-ui,
-    sans-serif;
+  font: 12px var(--ui-font-family);
 }
 
-#app {
-  padding: 8px;
-  color: var(--fg-muted);
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Toolbar: one 26px row, like the Network panel's. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 27px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--toolbar-bg);
+  flex: none;
+}
+
+.separator {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--divider);
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--fg-subtle);
+  cursor: pointer;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.icon-button:disabled {
+  color: var(--fg-disabled);
+  cursor: default;
+}
+
+.icon-button[aria-pressed="true"] {
+  color: var(--primary);
+}
+
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: min(400px, 50%);
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: var(--neutral-container);
+  color: var(--fg-subtle);
+}
+
+.filter:focus-within {
+  border-color: var(--primary);
+  background: var(--bg);
+}
+
+.filter input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+}
+
+.filter input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-subtle);
+}
+
+/* Request list: a data grid like the Network panel's (27px header, 21px rows, odd rows shaded). */
+.request-list {
+  flex: 1;
+  overflow: auto;
+}
+
+.request-list.compact {
+  flex: none;
+  width: min(280px, 35%);
+  border-right: 1px solid var(--divider);
+}
+
+.request-list table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.request-list th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 27px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--bg);
+  font-weight: normal;
+  line-height: 18px;
+  text-align: left;
+}
+
+.request-list td {
+  height: 21px;
+  padding: 0 6px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.request-list th + th,
+.request-list td + td {
+  border-left: 1px solid var(--divider);
+}
+
+.request-list .method {
+  width: 72px;
+}
+
+.request-list .status {
+  width: 72px;
+}
+
+.request-list .size,
+.request-list .time {
+  width: 80px;
+  text-align: right;
+}
+
+.request-list tbody tr:nth-child(odd) {
+  background: var(--row-odd);
+}
+
+.request-list tr.selectable {
+  cursor: pointer;
+}
+
+.request-list tbody tr.selectable:hover {
+  background: var(--hover);
+}
+
+.request-list tbody tr.selected,
+.request-list tbody tr.selected:hover {
+  background: var(--selected-row);
+}
+
+.request-list tr.error {
+  color: var(--error);
+}
+
+.request-list tr.disabled {
+  color: var(--fg-disabled);
+}
+
+.request-list .note {
+  font-style: italic;
+}
+
+/* Detail view */
+.detail {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  height: 27px;
+  padding: 0 4px 0 2px;
+  border-bottom: 1px solid var(--divider);
+  flex: none;
+  /* When DevTools is narrow (docked to the side), scroll rather than clip the view switch. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-bar > * {
+  flex: none;
+}
+
+.tab-bar > .spacer {
+  flex: 1;
+}
+
+.tab-bar .icon-button {
+  align-self: center;
+}
+
+.tab {
+  position: relative;
+  padding: 0 10px;
+  border: none;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  background: var(--hover);
+}
+
+.tab.selected {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.tab.selected::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--primary);
+}
+
+.segmented {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.segmented button {
+  height: 20px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--fg-subtle);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segmented button:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.segmented button.selected {
+  background: var(--selected-row);
+  color: var(--fg);
+}
+
+.summary {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--divider);
+  flex: none;
+  user-select: text;
+}
+
+.summary .method {
+  font-weight: 500;
+}
+
+.summary .url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary .status.error {
+  color: var(--error);
+}
+
+.panes {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.pane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.panes.split .pane + .pane {
+  border-left: 1px solid var(--divider);
+}
+
+.code-view {
+  flex: 1;
+  min-height: 0;
+}
+
+.message {
+  padding: 12px;
+  color: var(--fg-subtle);
+}
+
+.message.error {
+  color: var(--error);
+  user-select: text;
+}
+
+/* Path footer under the EDN pane */
+.path-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 25px;
+  padding: 0 8px;
+  border-top: 1px solid var(--divider);
+  flex: none;
+}
+
+.path-footer .hint,
+.path-footer .label {
+  color: var(--fg-subtle);
+}
+
+.path-footer .path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--code-font-family);
+  font-size: var(--code-font-size);
+  user-select: text;
+}
+
+.text-button {
+  height: 20px;
+  padding: 0 10px;
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+  background: none;
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.text-button:hover {
+  background: var(--hover);
 }
