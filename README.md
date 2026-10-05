@@ -1,5 +1,7 @@
 # Transit Inspector
 
+[![CI](https://github.com/Tuxedo-Code/transit-inspector/actions/workflows/ci.yml/badge.svg)](https://github.com/Tuxedo-Code/transit-inspector/actions/workflows/ci.yml)
+
 A DevTools extension for Chrome and Brave that adds a **Transit** tab next to Network. It lists the page's Fetch/XHR requests and shows Transit request payloads and response bodies decoded as readable EDN, next to the raw Transit.
 
 - Requests carrying Transit are clickable; other Fetch/XHR requests are grayed out. Transit is detected by content type, or by sniffing bodies served as `application/json`.
@@ -7,11 +9,15 @@ A DevTools extension for Chrome and Brave that adds a **Transit** tab next to Ne
 - The footer under the EDN view shows the `get-in` path of the value at the cursor, with a Copy button.
 - Follows the DevTools light/dark theme. Observe only: it never changes requests.
 
+![The Transit panel showing a response as EDN next to the raw Transit](docs/screenshot.png)
+
 ## Install as an extension
 
 Requires [mise](https://mise.jdx.dev) (or Node 24).
 
 ```sh
+git clone https://github.com/Tuxedo-Code/transit-inspector.git
+cd transit-inspector
 mise install
 npm ci
 npm run build
@@ -63,3 +69,11 @@ To share without the Chrome Web Store: `npm run package` creates `transit-inspec
 - `npm run lint`: lint and format check.
 
 Design and decisions: [docs/spec.md](docs/spec.md). Work plan: [docs/tasks.md](docs/tasks.md).
+
+## Contributing
+
+Issues and pull requests are welcome. Please read [docs/spec.md](docs/spec.md) first: its non-goals are binding, so features that change or replay requests are out of scope. Before opening a pull request, run `npm run lint`, `npm test` and `npm run test:e2e`; CI runs the same checks.
+
+## License
+
+[MIT](LICENSE). The built extension includes third-party code under its own licenses, listed in `THIRD_PARTY_LICENSES.md` in `dist/` and in the zip.

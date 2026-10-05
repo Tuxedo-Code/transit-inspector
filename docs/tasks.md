@@ -212,6 +212,22 @@ Done when: a fresh clone, then `mise install && npm ci && npm run package`, prod
 Notes:
 - Verified with a copy of exactly the files git would track (no commits exist yet): the zip (~170 kB) loads unpacked in Chrome for Testing and decodes in real DevTools.
 
+### [x] T15 Open-source release
+Depends on: T14
+
+- MIT `LICENSE`; repo metadata in `package.json` (stays `private`: not published to npm).
+- The build emits `THIRD_PARTY_LICENSES.md` into `dist/` for the bundled dependencies.
+- README: screenshot, clone URL, Contributing, License.
+- GitHub Actions CI: lint, typecheck, unit and e2e (xvfb on Linux).
+
+Done when: all checks pass locally and in a Linux container that mirrors CI; the zip contains `THIRD_PARTY_LICENSES.md`.
+
+Notes:
+- Repo: github.com/Tuxedo-Code/transit-inspector. The first real CI run happens on the first push.
+- Linux e2e was verified in Docker (`node:24-bookworm`, amd64, `xvfb-run`, `--security-opt seccomp=unconfined` so Chrome's sandbox works), 3 runs in a row. It exposed a race: the page used to load after a fixed 1 s sleep, before DevTools recorded traffic. `e2e/devtools.ts` now uses `page.openDevTools()` and waits for the Transit tab first.
+- `docs/screenshot.png` is `e2e/screenshots/split-light.png` (2x). Refresh it by copying after `npm run test:e2e` when the UI changes.
+- transit-js's Closure loader triggers rolldown `EVAL` warnings; `vite.config.ts` filters only those.
+
 ## Phase 2 - Later
 
 From spec "Later". Not to be started until v1 is done:

@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "description": "DevTools panel that shows Transit API traffic decoded as EDN.",
+  "license": "MIT",
+  "author": "Eduard Kyvenko",
+  "homepage": "https://github.com/Tuxedo-Code/transit-inspector#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tuxedo-Code/transit-inspector.git"
+  },
+  "bugs": "https://github.com/Tuxedo-Code/transit-inspector/issues",
   "scripts": {
     "dev": "vite --open /panel.html",
     "dev:ext": "vite build --watch",

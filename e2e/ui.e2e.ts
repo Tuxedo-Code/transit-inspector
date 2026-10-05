@@ -34,7 +34,8 @@ afterAll(async () => {
 beforeEach(async () => {
   await page?.close();
   page = await browser.newPage();
-  await page.setViewport({ width: 1300, height: 650 });
+  // 2x like a Retina display, so screenshots show what users see (docs/screenshot.png comes from here).
+  await page.setViewport({ width: 1300, height: 650, deviceScaleFactor: 2 });
   await page.goto(panelUrl);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
@@ -57,6 +58,15 @@ async function selectRow(name: string): Promise<void> {
     }
   }
   throw new Error(`No row named ${name}`);
+}
+
+/**
+ * Saves a screenshot for review. Headless Chrome at deviceScaleFactor 2 paints row hover at the wrong position (the
+ * DOM's :hover is right), so the mouse first leaves the page.
+ */
+async function screenshot(name: string): Promise<void> {
+  await page.mouse.move(-1, -1);
+  await page.screenshot({ path: resolve(SCREENSHOTS, `${name}.png`) });
 }
 
 const ednText = () => page.$eval(".pane .cm-content", (content) => (content as HTMLElement).innerText);
@@ -217,14 +227,14 @@ describe("detail view", () => {
   });
 
   it("fits the detail controls in a narrow panel (DevTools docked to the side)", async () => {
-    await page.setViewport({ width: 560, height: 650 });
+    await page.setViewport({ width: 560, height: 650, deviceScaleFactor: 2 });
     await selectRow("42");
     const overflow = await page.$eval(".segmented button:last-child", (button) => {
       const { right } = button.getBoundingClientRect();
       return right - window.innerWidth;
     });
     expect(overflow).toBeLessThanOrEqual(0);
-    await page.screenshot({ path: resolve(SCREENSHOTS, "narrow.png") });
+    await screenshot("narrow");
   });
 
   it("closes the detail view", async () => {
@@ -238,13 +248,13 @@ describe("screenshots for review", () => {
   for (const scheme of ["light", "dark"] as const) {
     it(`renders the main states (${scheme})`, async () => {
       await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: scheme }]);
-      await page.screenshot({ path: resolve(SCREENSHOTS, `list-${scheme}.png`) });
+      await screenshot(`list-${scheme}`);
       await selectRow("42");
       await clickInEdn(":order/status");
-      await page.screenshot({ path: resolve(SCREENSHOTS, `edn-${scheme}.png`) });
+      await screenshot(`edn-${scheme}`);
       await page.click(".segmented button:nth-child(2)");
       await selectRow("search?q=transit&limit=50");
-      await page.screenshot({ path: resolve(SCREENSHOTS, `split-${scheme}.png`) });
+      await screenshot(`split-${scheme}`);
     });
   }
 });

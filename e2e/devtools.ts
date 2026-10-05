@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import puppeteer, { type Browser, type CDPSession, type Page, type Target } from "puppeteer";
+import puppeteer, { type Browser, type CDPSession, type Page } from "puppeteer";
 
 const DIST = resolve(import.meta.dirname, "..", "dist");
 
@@ -40,34 +40,30 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * Opens a page with DevTools and switches DevTools to the Transit tab.
  * The extension installs after launch, so only DevTools windows opened afterwards reliably have the tab: always
- * use a new page. Other tabs are closed so theirs is the only DevTools window; the initial blank tab's DevTools
- * sometimes gets the Transit tab too, and clicking that one would inspect the wrong page.
+ * use a new page. The page navigates only once its DevTools shows the Transit tab: DevTools then records network
+ * traffic, so the page's requests on load are captured even on slow machines.
  */
 export async function openPageWithTransitPanel(browser: Browser, url: string): Promise<{ page: Page; panel: Panel }> {
-  const others = await browser.pages();
   const page = await browser.newPage();
-  for (const other of others) await other.close();
-  await sleep(1000); // let DevTools open and run the extension's devtools page
+  const devtools = await page.openDevTools();
+  await waitForTransitTab(devtools, false);
   await page.goto(url);
-  await clickTransitTab(browser);
+  await waitForTransitTab(devtools, true);
   const target = await browser.waitForTarget((t) => t.url().endsWith("/panel.html"), { timeout: 10_000 });
   return { page, panel: new Panel(await target.createCDPSession()) };
 }
 
-async function clickTransitTab(browser: Browser): Promise<void> {
-  for (let attempt = 0; attempt < 40; attempt++) {
-    for (const target of browser.targets().filter((t) => t.url().startsWith("devtools://"))) {
-      const clicked = await clickTransitTabIn(target).catch(() => false); // window may be closing (its tab was closed)
-      if (clicked) return;
-    }
+async function waitForTransitTab(devtools: Page, click: boolean): Promise<void> {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    if (await findTransitTab(devtools, click)) return;
     await sleep(250);
   }
-  throw new Error("Transit tab not found in any DevTools window");
+  throw new Error("Transit tab not found in DevTools");
 }
 
-async function clickTransitTabIn(target: Target): Promise<boolean> {
-  const devtools = await target.asPage();
-  return devtools.evaluate(() => {
+/** Whether the DevTools window has the Transit tab; clicks it if `click` is set. */
+function findTransitTab(devtools: Page, click: boolean): Promise<boolean> {
+  return devtools.evaluate((click) => {
     const find = (root: Document | ShadowRoot): HTMLElement | null => {
       for (const el of root.querySelectorAll<HTMLElement>('[role="tab"]')) {
         if (el.textContent?.trim() === "Transit") return el;
@@ -80,10 +76,12 @@ async function clickTransitTabIn(target: Target): Promise<boolean> {
     };
     const tab = find(document);
     if (!tab) return false;
-    tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    tab.click();
+    if (click) {
+      tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      tab.click();
+    }
     return true;
-  });
+  }, click);
 }
 
 /** Runs code inside the real Transit panel, where `chrome.devtools.*` is available. */
