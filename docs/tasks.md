@@ -226,3 +226,8 @@ From spec "Later". Not to be started until v1 is done:
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)
 - [ ] Custom extension icons
+- [ ] Firefox support ("maybe"; see spec "Supported browsers"):
+  - Check what Firefox's `devtools.network` HAR entries contain. If `_resourceType` is missing, find another way to tell Fetch/XHR apart, or list every request that carries Transit.
+  - Check the panel, CodeMirror and the clipboard fallback in Firefox DevTools, in both themes.
+  - Decide how to install it: temporary add-on via `about:debugging` (lost on restart), Developer Edition/Nightly with signing off, or free Mozilla signing.
+  - Decide how to test it automatically (Puppeteer's Firefox support doesn't cover DevTools panels; WebDriver BiDi or a manual checklist).

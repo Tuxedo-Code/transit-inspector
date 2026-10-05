@@ -25,6 +25,7 @@ Toolchain: `mise install && npm ci` (mise pins Node).
 - `npm run dev`: panel UI in a normal tab with sample data and hot reload (fastest loop for UI work)
 - `npm test`: unit tests (Vitest)
 - `npm run test:e2e`: build + Puppeteer tests in Chrome for Testing (opens a visible Chrome window); screenshots land in `e2e/screenshots/`
+- Brave is supported too. `E2E_BROWSER="/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" npm run test:e2e` runs the real-DevTools tests in Brave (any Chromium executable works); the UI tests always use Chrome for Testing
 - `npm run lint` / `npm run format`: Biome check / fix
 - `npm run typecheck`: TypeScript only
 - `npm run package`: build and zip `dist/` for sharing

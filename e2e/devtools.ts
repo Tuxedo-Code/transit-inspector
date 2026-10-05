@@ -1,12 +1,13 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import puppeteer, { type Browser, type CDPSession, type Page } from "puppeteer";
+import puppeteer, { type Browser, type CDPSession, type Page, type Target } from "puppeteer";
 
 const DIST = resolve(import.meta.dirname, "..", "dist");
 
 /**
  * Launches a visible Chrome for Testing with the built extension (DevTools does not open in headless mode).
+ * Set E2E_BROWSER to another Chromium browser's executable (e.g. Brave) to run the same tests there.
  * Uses a throwaway profile with DevTools docked to the bottom: docked to the side, DevTools is too narrow
  * and moves the Transit tab into the hidden "»" overflow, where it can't be clicked.
  */
@@ -25,6 +26,7 @@ export async function launchWithExtension(): Promise<{ browser: Browser; close: 
     defaultViewport: null,
     userDataDir: profile,
     args: ["--window-size=1600,1000"],
+    ...(process.env.E2E_BROWSER ? { executablePath: process.env.E2E_BROWSER } : {}),
   });
   const close = async () => {
     await browser.close();
@@ -55,29 +57,33 @@ export async function openPageWithTransitPanel(browser: Browser, url: string): P
 async function clickTransitTab(browser: Browser): Promise<void> {
   for (let attempt = 0; attempt < 40; attempt++) {
     for (const target of browser.targets().filter((t) => t.url().startsWith("devtools://"))) {
-      const devtools = await target.asPage();
-      const clicked = await devtools.evaluate(() => {
-        const find = (root: Document | ShadowRoot): HTMLElement | null => {
-          for (const el of root.querySelectorAll<HTMLElement>('[role="tab"]')) {
-            if (el.textContent?.trim() === "Transit") return el;
-          }
-          for (const el of root.querySelectorAll("*")) {
-            const found = el.shadowRoot && find(el.shadowRoot);
-            if (found) return found;
-          }
-          return null;
-        };
-        const tab = find(document);
-        if (!tab) return false;
-        tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-        tab.click();
-        return true;
-      });
+      const clicked = await clickTransitTabIn(target).catch(() => false); // window may be closing (its tab was closed)
       if (clicked) return;
     }
     await sleep(250);
   }
   throw new Error("Transit tab not found in any DevTools window");
+}
+
+async function clickTransitTabIn(target: Target): Promise<boolean> {
+  const devtools = await target.asPage();
+  return devtools.evaluate(() => {
+    const find = (root: Document | ShadowRoot): HTMLElement | null => {
+      for (const el of root.querySelectorAll<HTMLElement>('[role="tab"]')) {
+        if (el.textContent?.trim() === "Transit") return el;
+      }
+      for (const el of root.querySelectorAll("*")) {
+        const found = el.shadowRoot && find(el.shadowRoot);
+        if (found) return found;
+      }
+      return null;
+    };
+    const tab = find(document);
+    if (!tab) return false;
+    tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    tab.click();
+    return true;
+  });
 }
 
 /** Runs code inside the real Transit panel, where `chrome.devtools.*` is available. */

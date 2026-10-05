@@ -6,9 +6,16 @@ Last updated: 2026-10-05
 
 ## Goal
 
-A Chrome extension (Manifest V3) that adds a **"Transit"** tab to Chrome DevTools. It lists the page's Fetch/XHR requests and shows the Transit ones decoded as readable, Clojure-style EDN, next to the raw Transit JSON.
+A browser extension (Manifest V3) that adds a **"Transit"** tab to DevTools. It lists the page's Fetch/XHR requests and shows the Transit ones decoded as readable, Clojure-style EDN, next to the raw Transit JSON.
 
 Primary use: open DevTools on an app that talks Transit to its backend, click a request, read the decoded request payload and response body.
+
+## Supported browsers
+
+- **Chrome** and **Brave**: supported. The full real-DevTools test suite passes in both (verified with Chrome for Testing 154 and Brave 154). The same build works unchanged.
+- Other Chromium browsers (Edge, Vivaldi, Opera, Arc) use the same extension APIs and likely work, but are untested.
+- **Firefox**: maybe later (see "Later"). Known gaps: HAR entries probably lack Chrome's `_resourceType` (used for the Fetch/XHR filter), no `setThemeChangeHandler`, and permanent installs need Mozilla signing (free) or Developer Edition/Nightly.
+- **Safari**: not planned (requires an Xcode app wrapper and an Apple Developer account).
 
 ## Non-goals
 
@@ -224,4 +231,5 @@ User-facing limitations are listed in the README ("Limitations"); keep that sect
 - Dimmed parent path next to the Name when names collide.
 - Web Worker decoding.
 - Custom extension icons.
+- Firefox support (see "Supported browsers" for the known gaps).
 - Intercept and override (requires `chrome.debugger`; see Non-goals).
