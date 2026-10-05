@@ -1,6 +1,6 @@
-# Transit Debugger
+# Transit Inspector
 
-Chrome DevTools extension (Manifest V3) that adds a "Transit" panel showing Fetch/XHR Transit traffic decoded as EDN. Observe only.
+DevTools extension for Chrome and Brave (Manifest V3) that adds a "Transit" panel showing Fetch/XHR Transit traffic decoded as EDN. Observe only.
 
 - [docs/spec.md](docs/spec.md) is the source of truth for scope and decisions. Read it before planning or coding. Non-goals are binding.
 - [docs/tasks.md](docs/tasks.md) is the work plan:

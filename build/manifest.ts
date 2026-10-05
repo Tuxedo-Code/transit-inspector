@@ -9,7 +9,7 @@ export function manifestWithVersion(manifest: Record<string, unknown>, version: 
 /** Emits manifest.json into the build output with the package.json version filled in. */
 export function manifestPlugin(manifestPath: string, packagePath: string): Plugin {
   return {
-    name: "transit-debugger:manifest",
+    name: "transit-inspector:manifest",
     apply: "build",
     buildStart() {
       this.addWatchFile(manifestPath);

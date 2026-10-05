@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Transit Debugger",
+  "name": "Transit Inspector",
   "description": "DevTools panel that shows Transit API traffic decoded as EDN.",
   "devtools_page": "devtools.html"
 }

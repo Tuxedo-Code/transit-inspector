@@ -3,7 +3,7 @@ import { manifestWithVersion } from "./manifest";
 
 describe("manifestWithVersion", () => {
   it("sets the version without changing other fields", () => {
-    const manifest = { manifest_version: 3, name: "Transit Debugger", devtools_page: "devtools.html" };
+    const manifest = { manifest_version: 3, name: "Transit Inspector", devtools_page: "devtools.html" };
     expect(manifestWithVersion(manifest, "1.2.3")).toEqual({ ...manifest, version: "1.2.3" });
   });
 

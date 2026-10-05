@@ -12,7 +12,7 @@ const DIST = resolve(import.meta.dirname, "..", "dist");
  * and moves the Transit tab into the hidden "»" overflow, where it can't be clicked.
  */
 export async function launchWithExtension(): Promise<{ browser: Browser; close: () => Promise<void> }> {
-  const profile = mkdtempSync(join(tmpdir(), "transit-debugger-e2e-"));
+  const profile = mkdtempSync(join(tmpdir(), "transit-inspector-e2e-"));
   mkdirSync(join(profile, "Default"));
   writeFileSync(
     join(profile, "Default", "Preferences"),

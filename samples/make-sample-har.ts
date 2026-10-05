@@ -213,6 +213,6 @@ const entries = specs.map((s, i) => {
   };
 });
 
-const har = { log: { version: "1.2", creator: { name: "transit-debugger sample generator", version: "1" }, entries } };
+const har = { log: { version: "1.2", creator: { name: "transit-inspector sample generator", version: "1" }, entries } };
 writeFileSync(new URL("basic.har", import.meta.url), `${JSON.stringify(har, null, 2)}\n`);
 console.log(`wrote ${entries.length} entries to samples/basic.har`);

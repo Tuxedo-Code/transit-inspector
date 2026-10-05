@@ -1,4 +1,4 @@
-# Transit Debugger
+# Transit Inspector
 
 A DevTools extension for Chrome and Brave that adds a **Transit** tab next to Network. It lists the page's Fetch/XHR requests and shows Transit request payloads and response bodies decoded as readable EDN, next to the raw Transit.
 
@@ -25,7 +25,7 @@ To update after pulling changes: run `npm run build` again, click the reload ico
 
 Other Chromium browsers (Edge, Vivaldi, Opera, Arc) will likely work the same way but aren't tested. Firefox and Safari aren't supported.
 
-To share without the Chrome Web Store: `npm run package` creates `transit-debugger-<version>.zip`. The recipient unzips it and loads the folder with **Load unpacked**.
+To share without the Chrome Web Store: `npm run package` creates `transit-inspector-<version>.zip`. The recipient unzips it and loads the folder with **Load unpacked**.
 
 ## Limitations
 

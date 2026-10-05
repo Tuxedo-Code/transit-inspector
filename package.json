@@ -1,9 +1,9 @@
 {
-  "name": "transit-debugger",
+  "name": "transit-inspector",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Chrome DevTools panel that shows Transit API traffic decoded as EDN.",
+  "description": "DevTools panel that shows Transit API traffic decoded as EDN.",
   "scripts": {
     "dev": "vite --open /panel.html",
     "dev:ext": "vite build --watch",
@@ -13,7 +13,7 @@
     "test:e2e": "npm run build && puppeteer browsers install chrome && vitest run --config vitest.e2e.config.ts",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "package": "npm run build && rm -f transit-debugger-*.zip && cd dist && zip -qr ../transit-debugger-$npm_package_version.zip ."
+    "package": "npm run build && rm -f transit-inspector-*.zip && cd dist && zip -qr ../transit-inspector-$npm_package_version.zip ."
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

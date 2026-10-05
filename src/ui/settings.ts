@@ -1,6 +1,6 @@
 export type ViewMode = "edn" | "split" | "transit";
 
-const VIEW_MODE_KEY = "transit-debugger:view-mode";
+const VIEW_MODE_KEY = "transit-inspector:view-mode";
 const VIEW_MODES: readonly ViewMode[] = ["edn", "split", "transit"];
 
 /** The remembered view mode; EDN only by default. Storage can be unavailable, so failures fall back silently. */

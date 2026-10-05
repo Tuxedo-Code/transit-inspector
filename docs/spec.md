@@ -1,4 +1,4 @@
-# Transit Debugger - Spec
+# Transit Inspector - Spec
 
 Source of truth for product and architecture decisions. If an implementation needs to deviate, update this file in the same change and say why.
 
@@ -178,7 +178,7 @@ npm scripts:
 | `test` | Vitest |
 | `test:e2e` | build, install Chrome for Testing if missing, run the Puppeteer tests (opens a Chrome window) |
 | `lint` | Biome check |
-| `package` | build, then zip `dist/` to `transit-debugger-<version>.zip` |
+| `package` | build, then zip `dist/` to `transit-inspector-<version>.zip` |
 
 ## Install (no store)
 
