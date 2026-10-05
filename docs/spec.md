@@ -1,0 +1,220 @@
+# Transit Debugger - Spec
+
+Source of truth for product and architecture decisions. If an implementation needs to deviate, update this file in the same change and say why.
+
+Last updated: 2026-10-05
+
+## Goal
+
+A Chrome extension (Manifest V3) that adds a **"Transit"** tab to Chrome DevTools. It lists the page's Fetch/XHR requests and shows the Transit ones decoded as readable, Clojure-style EDN, next to the raw Transit JSON.
+
+Primary use: open DevTools on an app that talks Transit to its backend, click a request, read the decoded request payload and response body.
+
+## Non-goals
+
+- **Observe only.** No pausing, editing, overriding or mocking requests. That would require `chrome.debugger` (yellow "debugging this browser" bar, `debugger` permission) and is out of scope for now.
+- **Not a Network panel replacement.** No headers, timings, cookies, initiators, waterfall. Use the Network panel for those.
+- No WebSocket traffic.
+- No `application/transit+msgpack` decoding (shown as unsupported).
+- No capture while DevTools is closed.
+- No Chrome Web Store publishing, no `.crx`.
+- No synced collapse/fold state between the EDN and Transit panes.
+
+## Architecture
+
+- `manifest.json` (MV3) declares `devtools_page: devtools.html`. No permissions, no host permissions, no background service worker, no content scripts.
+- `devtools.html` registers the panel with `chrome.devtools.panels.create("Transit", ...)` pointing at `panel.html`.
+- The panel reads traffic from `chrome.devtools.network` (`onRequestFinished`, `getHAR`, `request.getContent()`, `onNavigated`).
+- **Data source boundary.** The UI consumes requests through a small interface with two implementations:
+  - DevTools source: wraps `chrome.devtools.network`.
+  - Sample data source: loads recorded requests from HAR files.
+
+  The whole UI therefore runs in a normal browser tab with hot reload and is testable without DevTools. Only the DevTools source needs DevTools to test.
+- **Sample data** is HAR files with content, exported from the Network panel (right-click > "Save all as HAR with content"). HAR is the same data model `chrome.devtools.network` returns, so both sources share one parser. Real traffic from an app becomes sample data in one click. Sample files live in the repo for tests and development.
+
+### Capture timing (open question, resolve in the spike task)
+
+The panel page only starts when its tab is first clicked, while `devtools.html` runs as soon as DevTools opens. Options:
+
+1. Backfill on panel start with `chrome.devtools.network.getHAR()`. Verify that its entries support `getContent()`.
+2. Capture in the devtools page from DevTools open and hand the buffer to the panel when it starts.
+
+Pick whichever reliably captures requests made between DevTools opening and the panel first being shown.
+
+## Request capture rules
+
+- **Only Fetch/XHR requests are listed** (DevTools resource types `fetch` and `xhr`, e.g. HAR `_resourceType`). Everything else is ignored entirely.
+- **Transit detection** (either is enough):
+  - content type `application/transit+json` (any parameters, e.g. charset), or
+  - body sniffing: valid JSON containing Transit markers (`"^ "`, `"~:"`, `"~#"`, etc.), to catch Transit served as `application/json`.
+
+  Detection applies to the request payload and the response body independently.
+- Fetch/XHR requests with no Transit in either direction are **listed grayed out and not selectable**.
+- `application/transit+msgpack` is listed grayed out with the label "transit+msgpack (not supported)".
+- **Order:** by request start time (browser side), like the Network panel. A request appears when it finishes, inserted at its start-time position.
+- **Failed requests:**
+  - 4xx/5xx responses with a Transit body are decoded like any other response;
+  - requests that never got a response (network error, CORS, cancelled) are listed grayed.
+- **Navigation clears the list.** "Preserve log" is a later feature.
+- **Memory:**
+  - Fetch the response body for every Fetch/XHR response whose content type is Transit, JSON-like or missing.
+  - Sniff only the first few KB for Transit markers.
+  - Keep the body only if it is Transit.
+  - Decode only when a request is selected.
+  - Cap the list (default: last 1,000 requests, oldest dropped).
+
+## Decoding and EDN output
+
+- Decode with the official `transit-js` library (JSON format only).
+- Print our own EDN text from the decoded value, pretty-printed with indentation:
+  - keywords (incl. namespaced) and symbols;
+  - strings (escaped), chars;
+  - integers, including those above 2^53, shown exactly with no rounding;
+  - floats, big integers, big decimals;
+  - `nil`, `true`, `false`;
+  - `#uuid "..."`, `#inst "..."`, URIs;
+  - vectors, lists, sets, maps (including non-scalar keys);
+  - tagged values from app-specific handlers as `#tag value`.
+- The printer also produces a **path index**: for each printed node, its text range and its EDN path (e.g. `[:user :orders 0 :id]`). This powers the path footer.
+  - Set elements use the element itself as the path step.
+  - Elements inside lists use their position, even though `get-in` cannot index lists.
+- **Problems are marked in place** (error underline plus a message on hover):
+  - malformed Transit or invalid JSON: marked in the raw pane at the error position, and the decoded pane shows the error message;
+  - unknown Transit tags: shown as `#tag value` and marked;
+  - precision loss and other decoding warnings: marked at the value.
+- Empty bodies, non-JSON bodies, and bodies DevTools no longer holds each get a clear empty state.
+
+## UI
+
+### Layout
+
+- Left: request list. Right: detail view of the selected request.
+- The list can be hidden with a toolbar toggle so the detail view gets the full width, and shown again.
+
+### Request list
+
+- Columns: Name, method, status, size, time.
+- **Name** replicates the Network panel's Name column: last path segment plus query string (e.g. `orders?status=open`). Full URL in a tooltip and in the detail header.
+- **Size** is the response body size.
+- **Filter box:** case-insensitive substring match on the full URL (path plus query), applied as you type. Chronological order is kept.
+- Auto-scroll to new requests only when already scrolled to the bottom.
+- Clear button.
+- Empty list shows "No Transit requests yet".
+- When navigation or Clear empties the list, the detail view resets.
+
+### Detail view
+
+- **Header bar:** method, full URL, status code.
+- **Switch:** "Request payload" | "Response body". Requests without a body show an empty state.
+- A request is selectable if either direction is Transit. A non-Transit body in the other direction is shown in the raw pane, and the EDN pane says "Not Transit".
+- **View mode:** EDN only (default) | side by side | Transit only.
+  - Applies to both payload and response.
+  - Remembered across requests and sessions.
+  - Hiding one pane to read a single view full width is the key feature.
+- **Panes** are read-only code editors (CodeMirror 6):
+  - decoded EDN with Clojure/EDN highlighting;
+  - raw Transit with JSON highlighting, shown exactly as received: no re-formatting, line wrapping on.
+- **Default editor behavior** (no custom click or double-click behavior):
+  - normal mouse/keyboard selection, Cmd+A and Cmd+C, including long strings and selections larger than the screen;
+  - folding arrows in the gutter of the EDN pane for maps, vectors, lists and sets, with everything unfolded by default (the raw pane has no folding since it is not re-formatted);
+  - Cmd+F search within the pane;
+  - large documents stay fast because the editor only draws the visible part.
+- **Path footer** (EDN pane only):
+  - a footer under the EDN pane shows the EDN path of the value at the cursor or selection, as a `get-in` vector (e.g. `[:user :orders 0 :id]`), from the path index;
+  - it updates as the cursor moves and is empty when the cursor is not on a value;
+  - a small "Copy" button next to the path copies it;
+  - no keyboard shortcut and no toolbar button.
+- **Side by side:** each pane scrolls on its own horizontally. Vertical scroll sync is a later nice-to-have.
+
+### Look and feel
+
+- **Feel like a built-in DevTools panel, not a separate app.** Where the Network panel has an equivalent control, copy its look and behavior:
+  - filter box;
+  - clear button;
+  - row height;
+  - selection highlight;
+  - toolbar.
+- **Minimal chrome:**
+  - no logo or banner; one thin toolbar row;
+  - DevTools fonts and sizes (UI about 12px system font, code in monospace);
+  - plain CSS with variables, no UI component library.
+- **Theme:** follow the DevTools theme (`chrome.devtools.panels.themeName`). With DevTools set to "System preference" this follows the OS. All colors are CSS variables with a light and a dark set.
+- **Highlighting** uses DevTools' own object-viewer colors (Console/Network previews), in both themes.
+
+## Stack and tooling
+
+- `mise.toml` pins Node (`node = "24"`). No JVM, no global installs.
+- npm with a committed `package-lock.json`.
+- TypeScript (strict) with `@types/chrome`.
+- Vite builds two HTML entry points (`devtools.html`, `panel.html`, at the project root) into `dist/`. No extension-specific Vite plugin.
+- `package.json` holds the only version number. The source `manifest.json` (project root) has no version; a small build plugin (`build/manifest.ts`) emits it into `dist/` with the version filled in.
+- No custom icons in v1; Chrome shows a default.
+- Preact for UI.
+- CodeMirror 6 for both panes: JSON language, Clojure/EDN language (e.g. `@nextjournal/lang-clojure`), fold gutter, search, read-only, lint diagnostics for problem marks.
+- `transit-js` for decoding.
+- Vitest for unit tests, Biome for lint and format.
+- A Web Worker for decoding is optional, only if measured delays are visible.
+
+npm scripts:
+
+| Script | Does |
+|---|---|
+| `dev` | UI in a normal tab with sample data and hot reload |
+| `dev:ext` | `vite build --watch` into `dist/` (reload the extension and reopen DevTools to see changes) |
+| `build` | typecheck plus production build into `dist/` |
+| `test` | Vitest |
+| `test:e2e` | build plus Puppeteer smoke test |
+| `lint` | Biome check |
+| `package` | build, then zip `dist/` to `transit-debugger-<version>.zip` |
+
+## Install (no store)
+
+1. Run `npm run build`.
+2. Open `chrome://extensions`, turn on Developer mode, click "Load unpacked" and choose `dist/`.
+3. To update, rebuild and click the extension's reload button.
+4. To share, send the zip from `npm run package`; the recipient unzips it and loads it unpacked.
+
+Self-signed `.crx` files are not installable on Mac/Windows Chrome without enterprise policy, so they are not used.
+
+## Testing
+
+- **Unit tests (Vitest):**
+  - Transit detection;
+  - decoding and EDN printing (a case per type in the decoding list above);
+  - path index;
+  - problem marking;
+  - Name column derivation;
+  - filter matching;
+  - ordering.
+- **UI tests, automated (Puppeteer):**
+  - run the panel UI in a normal Chrome tab with sample HAR data;
+  - click through it: selecting requests, switching views, the path footer;
+  - take screenshots in light and dark to check that things are visible and correct.
+
+  This is the main UI test layer. It is reliable because no DevTools window is involved.
+- **Real DevTools smoke test, automated if feasible (Puppeteer + Chrome for Testing**; Chrome-branded builds no longer accept `--load-extension`):
+  - load `dist/` unpacked and serve a test page making Transit and non-Transit fetch/XHR calls;
+  - open DevTools and the Transit tab;
+  - check that a request appears and decodes.
+
+  Clicking into DevTools' own window can be fragile across Chrome versions. If this test is flaky across 5 runs, replace it with a short manual checklist in the README and record that here.
+
+## Known risks
+
+- `navigator.clipboard.writeText` can fail inside DevTools extension panels. The path footer's Copy button needs the `document.execCommand('copy')` fallback; verify in real DevTools. Native Cmd+C in the editor is unaffected.
+- DevTools may not notify extensions of theme changes while open. Acceptable: the theme applies on the next DevTools open.
+- Bodies of old requests may be evicted by DevTools; show the "body no longer available" state.
+
+## Later (not v1)
+
+- Preserve log across navigation.
+- Method and status filters.
+- Wildcard/glob and regex URL filters.
+- Toggle to hide non-Transit rows.
+- Keyboard up/down navigation through requests, including while the list is hidden.
+- Resizable list/detail split.
+- Vertical scroll sync between EDN and Transit panes.
+- Dimmed parent path next to the Name when names collide.
+- Web Worker decoding.
+- Custom extension icons.
+- Intercept and override (requires `chrome.debugger`; see Non-goals).

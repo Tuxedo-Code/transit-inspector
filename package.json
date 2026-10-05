@@ -1,0 +1,26 @@
+{
+  "name": "transit-debugger",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Chrome DevTools panel that shows Transit API traffic decoded as EDN.",
+  "scripts": {
+    "dev": "vite --open /panel.html",
+    "dev:ext": "vite build --watch",
+    "build": "npm run typecheck && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "echo 'test:e2e is set up in task T03' && exit 1",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "package": "npm run build && rm -f transit-debugger-*.zip && cd dist && zip -qr ../transit-debugger-$npm_package_version.zip ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@types/chrome": "^0.3.4",
+    "@types/node": "^24.19.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}
