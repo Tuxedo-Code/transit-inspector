@@ -21,7 +21,8 @@ export async function launchWithExtension(): Promise<{ browser: Browser; close: 
   );
   const browser = await puppeteer.launch({
     headless: false,
-    devtools: true,
+    // No `devtools: true`: it opens a second DevTools for every tab. With two, the one under test sometimes
+    // renders no frames on Linux (Xvfb), so the Transit tab never reaches its DOM (~8% of CI runs).
     pipe: true,
     enableExtensions: true,
     defaultViewport: null,
@@ -42,13 +43,13 @@ export async function launchWithExtension(): Promise<{ browser: Browser; close: 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Opens a page with DevTools and switches DevTools to the Transit tab.
- * The extension installs after launch, so only DevTools windows opened afterwards reliably have the tab: always
- * use a new page. The page navigates only once its DevTools shows the Transit tab: DevTools then records network
- * traffic, so the page's requests on load are captured even on slow machines.
+ * Opens DevTools on the browser's one tab and switches it to the Transit tab. Call once per launch: DevTools must
+ * open only after the extension installed, and exactly one DevTools may be open (see `launchWithExtension`).
+ * The page navigates only once its DevTools shows the Transit tab: DevTools then records network traffic, so the
+ * page's requests on load are captured even on slow machines.
  */
 export async function openPageWithTransitPanel(browser: Browser, url: string): Promise<{ page: Page; panel: Panel }> {
-  const page = await browser.newPage();
+  const page = (await browser.pages())[0] ?? (await browser.newPage());
   const devtools = await page.openDevTools();
   await waitForTransitTab(browser, devtools, false);
   await page.goto(url);
