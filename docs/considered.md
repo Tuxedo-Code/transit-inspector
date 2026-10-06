@@ -100,3 +100,16 @@ Proposed: list every endpoint with its response shape, and spot endpoints that d
 These are rare, one-off audits. A script over a HAR export answers them better than a live panel.
 
 Verdict: rejected.
+
+## Toolbar icon: request counter, context menu, opening the panel
+
+Proposed: give the toolbar icon a job, such as a badge counting the tab's Transit requests, context menu items, or a button that opens DevTools on the Transit panel.
+
+- Opening DevTools isn't possible: no extension API opens DevTools or selects a panel. DevTools reopens on the last panel used, so Cmd+Opt+I usually lands on Transit anyway.
+- Only the panel sees traffic (`chrome.devtools.network`). A badge that counts while DevTools is open needs a background service worker the panel reports to, and it says little you can't see by clicking the Transit tab.
+- A badge that counts without DevTools needs `webRequest` and access to all sites. The extension would watch every page all the time, which breaks the privacy promise (spec "Privacy") that captured traffic lives only in the panel.
+- Context menu items need the `contextMenus` permission and a background service worker. The only plausible item, decoding Transit selected on a page, solves a pain not hit yet.
+
+Verdict: rejected for privacy. Each option adds a background service worker, permissions or both to a manifest that has neither (spec "Privacy", manifest pin), for little gain.
+
+Would change if: a toolbar feature solves a real, repeated pain and needs no new manifest keys beyond `action`.
