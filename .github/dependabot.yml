@@ -1,0 +1,37 @@
+# Policy: docs/spec.md "Dependencies and supply chain". PRs are merged by hand after CI.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    # Skip versions younger than a week (security updates aren't delayed).
+    cooldown:
+      default-days: 7
+    # Runtime dependencies ship in the extension, so their bumps release (fix); tooling bumps don't (chore).
+    commit-message:
+      prefix: fix
+      prefix-development: chore
+      include: scope
+    # Minor and patch updates in one PR per group (all @codemirror/* together: duplicates break CodeMirror).
+    # Majors come as separate PRs.
+    groups:
+      runtime:
+        dependency-type: production
+        update-types: [minor, patch]
+      dev:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
