@@ -239,13 +239,13 @@ Self-signed `.crx` files are not installable on Mac/Windows Chrome without enter
 
 ## Dependencies and supply chain
 
-Planned in T18.
+In place since T18.
 
 - **Dependabot** (`.github/dependabot.yml`) for npm and GitHub Actions:
   - 7-day cooldown before taking a new version (security updates aren't delayed);
   - minor and patch updates grouped (runtime, dev, actions); majors as separate PRs;
-  - commit prefixes: `fix(deps):` for runtime dependencies (they ship, so they trigger a release PR), `chore(deps):` for dev dependencies (no release), `ci(deps):` for actions;
-  - runtime updates weekly or monthly: open, decide in T18 (monthly suggested, see the note below).
+  - commit prefixes: `fix(deps):` for runtime dependencies (they ship, so they trigger a release PR), `chore(deps-dev):` for dev dependencies (no release), `ci(deps):` for actions;
+  - checks monthly, for npm and actions alike (decided in T18): at most one dependency-only release a month, since unpacked installs only update on reinstall (see the note below). Security fixes don't wait: Dependabot security updates open PRs right away.
 - **Merged by hand after CI, no auto-merge.** A merge done with `GITHUB_TOKEN` doesn't trigger the push CI that release-please needs (a PAT or app token would), and a human should see every change to shipped code.
 - **CI gates** in the `check` job: `npm audit signatures` (registry signatures and provenance of every installed package) and `npm audit --omit=dev` (a known vulnerability in shipped code blocks the release; dev-only advisories come through Dependabot alerts so tooling advisories don't block unrelated PRs). Both call the npm registry, so a registry outage fails CI; if that becomes flaky, move them to a scheduled job.
 - **No install scripts:** `.npmrc` sets `ignore-scripts=true`, against worm-style `postinstall` attacks. Only `puppeteer` has an install script, and `test:e2e` already runs `puppeteer browsers install chrome` explicitly.

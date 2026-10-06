@@ -278,7 +278,7 @@ Notes:
 - `Audits.enable` on the panel's CDP session does replay earlier issues: a `fetch` on panel start shows up in `panel.cspIssues`.
 - Not caused by the CSP, found while checking: CodeMirror's search panel (Cmd+F) used its light-only default field and button styles, unreadable in dark. Fixed in `src/ui/CodeView.tsx` (filter box and pill buttons from `panel.css`); `e2e/ui.e2e.ts` now saves `search-light/dark.png`.
 
-### [ ] T18 Dependency and supply-chain security
+### [~] T18 Dependency and supply-chain security
 Depends on: T15
 
 Implement spec "Dependencies and supply chain":
@@ -297,7 +297,7 @@ Implement spec "Dependencies and supply chain":
 Done when:
 - `rm -rf node_modules && npm ci`, then lint, typecheck, unit and e2e pass locally, and CI is green;
 - `actionlint` is clean;
-- after push, Insights > Dependency graph > Dependabot shows the config parsed, and the first Dependabot PRs carry `fix(deps)` / `chore(deps)` / `ci(deps)` titles;
+- after push, Insights > Dependency graph > Dependabot shows the config parsed, and the first Dependabot PRs carry `fix(deps)` / `chore(deps-dev)` / `ci(deps)` titles;
 - the next release has an attestation and `gh attestation verify` passes on its zip;
 - the repo settings are confirmed on.
 
