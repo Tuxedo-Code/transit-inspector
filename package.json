@@ -27,7 +27,7 @@
     "@biomejs/biome": "^2.5.15",
     "@types/chrome": "^0.3.4",
     "@types/har-format": "^1.2.16",
-    "@types/node": "^24.19.1",
+    "@types/node": "^26.6.3",
     "@types/transit-js": "^0.8.3",
     "puppeteer": "^25.12.0",
     "typescript": "^7.0.2",
