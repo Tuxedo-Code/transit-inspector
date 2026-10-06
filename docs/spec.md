@@ -300,4 +300,5 @@ User-facing limitations are listed in the README ("Limitations"); keep that sect
 - Custom extension icons.
 - Chrome Web Store listing (needs icons; see "Releases").
 - Firefox support (see "Supported browsers" for the known gaps).
+- release-please with its own GitHub App or fine-grained token instead of `GITHUB_TOKEN`, so CI really runs on release PRs (today they show a failed run with zero jobs).
 - Intercept and override (requires `chrome.debugger`; see Non-goals).

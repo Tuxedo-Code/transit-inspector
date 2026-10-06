@@ -339,6 +339,10 @@ From spec "Later". Not to be started until v1 is done:
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)
 - [ ] Custom extension icons
+- [ ] release-please with its own token:
+  - Why: PRs opened with `GITHUB_TOKEN` trigger no workflows, so every release PR shows a failed CI run with zero jobs, and CI never checks the release PR itself.
+  - How: a GitHub App (preferred: scoped, short-lived tokens via `actions/create-github-app-token`) or a fine-grained PAT with contents and pull-requests write, passed as `token:` to `release-please-action`. Keep the secret out of the `check` job.
+  - Done when: a release PR shows a real, green CI run, and merging it still releases with the zip and its attestation.
 - [ ] Chrome Web Store listing: icons (128px), listing assets, first upload by hand from a release zip, then optionally a CI job that uploads each release zip through the Web Store API
 - [ ] Firefox support ("maybe"; see spec "Supported browsers"):
   - Check what Firefox's `devtools.network` HAR entries contain. If `_resourceType` is missing, find another way to tell Fetch/XHR apart, or list every request that carries Transit.
