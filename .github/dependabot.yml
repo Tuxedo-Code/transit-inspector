@@ -15,6 +15,10 @@ updates:
       include: scope
     # Minor and patch updates in one PR per group (all @codemirror/* together: duplicates break CodeMirror).
     # Majors come as separate PRs.
+    # @types/node follows the Node major that mise.toml pins, so it moves with that by hand.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       runtime:
         dependency-type: production
