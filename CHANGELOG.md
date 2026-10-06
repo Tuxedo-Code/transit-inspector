@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.2.0...v0.3.0) (2026-10-06)
+
+
+### Features
+
+* block network access from the extension with a strict CSP ([6c36aa7](https://github.com/Tuxedo-Code/transit-inspector/commit/6c36aa7c4a35831a69ff87f9576b1b64cb9a5d9c))
+
 ## [0.2.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.1.0...v0.2.0) (2026-10-06)
 
 
