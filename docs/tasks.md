@@ -244,6 +244,69 @@ Notes:
 - "Allow GitHub Actions to create and approve pull requests" had to be enabled for the Tuxedo-Code org before the repo setting could be turned on.
 - The first CI run exposed an e2e race: Puppeteer's `launch({ enableExtensions: [path] })` doesn't await the install. `e2e/devtools.ts` now calls `browser.installExtension()` itself.
 
+### [ ] T17 Privacy guarantees
+Depends on: T15
+
+Enforce spec "Privacy" (the decisions, CSP string and reasons are there; don't re-derive them):
+- Add the CSP to `manifest.json` (`content_security_policy.extension_pages`).
+- Build tripwire `build/privacy.ts`, same pattern as `build/manifest.ts`:
+  - `findForbiddenApis(code): string[]`: plain substring checks for `inspectedWindow`, `chrome.tabs`, `chrome.windows`, `chrome.runtime`, `chrome.scripting`, `window.open`, `location.assign`, `location.replace`, `location.href=`, `dns-prefetch`, `preconnect`, each with a one-line reason;
+  - `privacyPlugin()` (`apply: "build"`) runs it on every JS chunk in `generateBundle` and calls `this.error()` with the chunk, the API and "see docs/spec.md Privacy"; register it next to `manifestPlugin` in `vite.config.ts`;
+  - `build/privacy.test.ts`: each API is caught; current-style code (`chrome.devtools.network.getHAR`, `chrome.devtools.panels.create`) passes.
+- Manifest pin in `build/manifest.test.ts`: read the root `manifest.json`; top-level keys exactly as listed in the spec; CSP equals the spec string. Failure message: "Privacy is binding (docs/spec.md 'Privacy'); change the spec first."
+- E2E in real DevTools:
+  - `e2e/test-server.ts`: log every request path on `TestServer.requests`; nothing legitimate uses `/leak/`.
+  - `e2e/devtools.ts`: a `Panel.create(session)` that enables the CDP `Audits` domain (it replays issues raised before it was enabled, so panel startup is covered) and collects `ContentSecurityPolicyIssue`s. Confirm the replay on the first run; if it doesn't happen, use `Log.enable`, which also replays.
+  - `e2e/devtools.e2e.ts`: "loads with no CSP violations", asserted after the existing tests so the whole UI ran under the CSP; then, last, "can't send anything to a server": from inside the panel try fetch, XHR, `sendBeacon`, `new WebSocket`, `new Image().src`, and an injected `<style>` with `@import` and `url()`, each to `/leak/<kind>`. Assert fetch/XHR reject, the server logged no `/leak/` path, and every attempt raised a CSP issue (proves the CSP blocked it, not some other failure).
+- `vite.config.ts`: the comment on the transit-js `EVAL` filter says a feature probe runs; it doesn't (`var COMPILED = !0` in `node_modules/transit-js/transit.js`; the probe at line 990 is inside `if (!COMPILED)`). Correct it.
+- `AGENTS.md`, one bullet: privacy is binding (spec "Privacy"); never loosen the CSP or the tripwire to make something work.
+- Commit: `feat: block network access from the extension with a strict CSP`.
+
+Done when:
+- lint, typecheck, unit and e2e tests pass, the real-DevTools tests also in Brave (`E2E_BROWSER`);
+- screenshots in light and dark look unchanged (missing CodeMirror colors, fold gutter or lint underlines are the first sign of a CSP mistake);
+- three negative checks fail as expected and are reverted: `"permissions": ["storage"]` in the manifest fails the unit test, `chrome.devtools.inspectedWindow.eval("1")` in `src/` fails `npm run build`, a `fetch("https://example.com")` on panel start fails e2e;
+- the `npm run package` zip loads unpacked with no "Errors" button and no permissions, decodes on a real Transit app, and the panel's own console (right-click > Inspect) shows no CSP errors.
+
+### [ ] T18 Dependency and supply-chain security
+Depends on: T15
+
+Implement spec "Dependencies and supply chain":
+- First settle the open question with the user: runtime dependency updates weekly or monthly. Each `fix(deps)` merge leads to a release, and unpacked installs only get it on reinstall, so weekly mostly adds changelog noise. Monthly suggested. Record the answer in the spec.
+- `.github/dependabot.yml`: npm and github-actions, `cooldown` 7 days, groups and `commit-message` prefixes (`prefix: fix`, `prefix-development: chore`, `include: scope`; actions `ci`) as in the spec. All `@codemirror/*` packages must land in the same group (duplicates break CodeMirror; the e2e tests would catch it).
+- `.github/workflows/ci.yml`:
+  - pin every action to a full commit SHA with a `# vX.Y.Z` comment;
+  - `persist-credentials: false` on both checkouts;
+  - in `check`, after `npm ci`: `npm audit signatures` and `npm audit --omit=dev`;
+  - in `release`, after the zip upload: `actions/attest-build-provenance` on the zip, with `id-token: write` and `attestations: write` on that job only.
+- `.npmrc` with `ignore-scripts=true`; check that a clean install still builds and runs e2e.
+- `SECURITY.md`: report privately through GitHub's "Report a vulnerability"; only the latest release is supported; link the README privacy section.
+- Repo settings through `gh api`, asking the user before each: Dependabot alerts (`PUT /repos/{owner}/{repo}/vulnerability-alerts`), security updates (`PUT .../automated-security-fixes`), private vulnerability reporting (`PUT .../private-vulnerability-reporting`), secret scanning and push protection (`PATCH /repos/{owner}/{repo}` `security_and_analysis`).
+- Commits: `ci:` for workflow and Dependabot, `build:` for `.npmrc`, `docs:` for `SECURITY.md`.
+
+Done when:
+- `rm -rf node_modules && npm ci`, then lint, typecheck, unit and e2e pass locally, and CI is green;
+- `actionlint` is clean;
+- after push, Insights > Dependency graph > Dependabot shows the config parsed, and the first Dependabot PRs carry `fix(deps)` / `chore(deps)` / `ci(deps)` titles;
+- the next release has an attestation and `gh attestation verify` passes on its zip;
+- the repo settings are confirmed on.
+
+### [ ] T19 README: privacy and security breakdown
+Depends on: T17, T18
+
+- A short "Privacy and security" section in `README.md`, right after the feature bullets. Plain language, about 6-8 bullets, each claim true of what T17 and T18 shipped:
+  - no network requests, no tracking, no third parties, no permissions; captured traffic stays in DevTools memory; only the view mode is saved;
+  - the CSP blocks all connections, and how to check it yourself (`manifest.json` in the zip, `connect-src 'none'`);
+  - the build refuses APIs that could leak data some other way;
+  - CI proves from inside DevTools that nothing reaches a server;
+  - dependencies are updated by Dependabot, reviewed by hand, and audited in CI;
+  - how to verify a downloaded zip (`gh attestation verify ...`);
+  - how to report a vulnerability (`SECURITY.md`).
+- Link spec "Privacy" for details instead of repeating them. The section doubles as the privacy-policy link for a future Web Store listing.
+- Commit: `docs:`.
+
+Done when: every claim matches the shipped code and settings, and the section reads well rendered on GitHub.
+
 ## Phase 2 - Later
 
 From spec "Later". Not to be started until v1 is done:

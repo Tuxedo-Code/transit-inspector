@@ -27,9 +27,39 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
 - No `.crx`. Chrome Web Store publishing isn't set up yet, but release zips are valid store uploads (see "Releases").
 - No synced collapse/fold state between the EDN and Transit panes.
 
+## Privacy
+
+Binding, like the non-goals. Changing the promise, or loosening any of the enforcement below, is a spec change first. Enforcement is planned in T17.
+
+- **Promise.** The extension makes no network requests of its own: no telemetry, analytics or crash reporting, no remote code, no third-party services, no permissions. Captured traffic lives only in the panel's memory and is gone when DevTools closes. The only stored value is the view mode, in `localStorage` (`src/ui/settings.ts`).
+- **1. CSP.** `manifest.json` sets `content_security_policy.extension_pages` (applies to `devtools.html` and `panel.html`):
+
+  `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`
+
+  | Part | Why |
+  |---|---|
+  | `default-src 'none'` | Everything not listed (fonts, media, frames, workers, prefetch) is blocked. The panel uses only system fonts. |
+  | `script-src 'self'` | MV3's minimum: no remote code, no `eval`. |
+  | `style-src 'self' 'unsafe-inline'` | CodeMirror's `style-mod` mounts its theme as a `<style>` element on a document (constructable sheets only on shadow roots), so `'self'` alone unstyles the editor. A nonce would be a fixed string in the manifest and protect nothing. CSS can't send data here: remote `@import`, images and fonts are blocked. |
+  | `img-src 'self' data:` | The `data:,` favicon in `panel.html` and CodeMirror's SVG data URIs (lint underlines, `.cm-highlightTab`). No remote images, the classic beacon. |
+  | `connect-src 'none'` | Blocks fetch, XHR, WebSocket, EventSource and `sendBeacon`. `chrome.devtools.network` (`getHAR`, `getContent`) is an extension API, not a connection, so capture is unaffected. |
+  | `object-src`, `base-uri`, `form-action` `'none'` | Close the remaining legacy ways to load from or submit to a URL. |
+  | no `frame-ancestors` | DevTools embeds the panel in a frame. |
+
+  `npm run dev` (panel in a normal tab, needs Vite's HMR socket) runs without this CSP; the real-DevTools e2e tests cover it. transit-js bundles Closure's debug loader (sync XHR, `eval`, script injection), but it is dead code (`var COMPILED = !0` guards it), so no CSP violations are expected.
+- **2. Build tripwire** (`build/privacy.ts`). A CSP can't block everything:
+  - `chrome.devtools.inspectedWindow.eval` runs code in the inspected page, under the page's CSP;
+  - navigation carries data in a URL (`window.open`, `location.assign/replace/href=`, `chrome.tabs`, `chrome.windows`);
+  - `chrome.runtime` messaging reaches other extensions; `chrome.scripting` injects into pages;
+  - DNS prefetch and preconnect leak a hostname.
+
+  The build fails if any JS chunk mentions one of these, so no release zip can contain them. Threat model: it catches accidental use by us or by a dependency, not deliberately hidden code. Network globals (`fetch`, `XMLHttpRequest`) are not on the list: the CSP covers them, and transit-js's dead loader mentions `XMLHttpRequest`.
+- **3. Manifest pin** (unit test). The manifest's top-level keys are an exact allowlist (`manifest_version`, `name`, `description`, `devtools_page`, `content_security_policy`), so adding `permissions`, `host_permissions`, `background`, `content_scripts`, `externally_connectable` or similar fails. The CSP must equal the string above.
+- **4. E2E proof** (real DevTools). The panel raises no CSP issues during normal use. From inside the panel, attempts to reach the test server (fetch, XHR, `sendBeacon`, WebSocket, an image, CSS `url()` and `@import`) never arrive, and each is reported as a CSP issue.
+
 ## Architecture
 
-- `manifest.json` (MV3) declares `devtools_page: devtools.html`. No permissions, no host permissions, no background service worker, no content scripts.
+- `manifest.json` (MV3) declares `devtools_page: devtools.html`. No permissions, no host permissions, no background service worker, no content scripts, and a CSP that blocks network access (see "Privacy").
 - `devtools.html` registers the panel with `chrome.devtools.panels.create("Transit", ...)` pointing at `panel.html`.
 - The panel reads traffic from `chrome.devtools.network` (`onRequestFinished`, `getHAR`, `request.getContent()`, `onNavigated`).
 - **Data source boundary.** The UI consumes requests through a small interface with two implementations:
@@ -201,9 +231,27 @@ Self-signed `.crx` files are not installable on Mac/Windows Chrome without enter
 - Each push with releasable commits opens or updates a "release x.y.z" PR that bumps `package.json`/`package-lock.json` and updates `CHANGELOG.md`. Neither is edited by hand.
 - Merging that PR tags `vX.Y.Z`, creates a GitHub Release whose notes are that version's changelog, and attaches `transit-inspector-<version>.zip` (built by `npm run package` in the same job).
 - PRs and tags created with `GITHUB_TOKEN` don't trigger workflows, so CI doesn't run on the release PR itself; the merge commit runs `check` before anything is released.
+- Dependency bumps of shipped code are `fix(deps):` commits, so they go through the same release PR (see "Dependencies and supply chain").
 - To force a specific next version, add a `Release-As: x.y.z` footer to a commit message. The first release used `initial-version` in `release-please-config.json`: a manifest at `0.0.0` counts as "never released", and the node strategy would otherwise start at 1.0.0.
 - Settings required: "Allow GitHub Actions to create and approve pull requests" under Actions > General, first in the Tuxedo-Code organization settings (it overrides the repo), then in the repo. Without it, the `release` job can't open the release PR.
 - **Web Store readiness:** the release zip has `manifest.json` at its root and a version Chrome accepts, so it can be uploaded to the Chrome Web Store as is. Publishing still needs icons and a store listing (see "Later"). The first upload is done by hand in the developer dashboard; a CI upload job can follow.
+
+## Dependencies and supply chain
+
+Planned in T18.
+
+- **Dependabot** (`.github/dependabot.yml`) for npm and GitHub Actions:
+  - 7-day cooldown before taking a new version (security updates aren't delayed);
+  - minor and patch updates grouped (runtime, dev, actions); majors as separate PRs;
+  - commit prefixes: `fix(deps):` for runtime dependencies (they ship, so they trigger a release PR), `chore(deps):` for dev dependencies (no release), `ci(deps):` for actions;
+  - runtime updates weekly or monthly: open, decide in T18 (monthly suggested, see the note below).
+- **Merged by hand after CI, no auto-merge.** A merge done with `GITHUB_TOKEN` doesn't trigger the push CI that release-please needs (a PAT or app token would), and a human should see every change to shipped code.
+- **CI gates** in the `check` job: `npm audit signatures` (registry signatures and provenance of every installed package) and `npm audit --omit=dev` (a known vulnerability in shipped code blocks the release; dev-only advisories come through Dependabot alerts so tooling advisories don't block unrelated PRs). Both call the npm registry, so a registry outage fails CI; if that becomes flaky, move them to a scheduled job.
+- **No install scripts:** `.npmrc` sets `ignore-scripts=true`, against worm-style `postinstall` attacks. Only `puppeteer` has an install script, and `test:e2e` already runs `puppeteer browsers install chrome` explicitly.
+- **Actions** are pinned to full commit SHAs with a version comment (Dependabot updates both), checkouts use `persist-credentials: false`, and the `check` job has no secrets: Dependabot PRs run new dependency code there.
+- **Release provenance:** the release job attests the zip with `actions/attest-build-provenance`, after the upload so a failure can't leave a release without its zip (attestations need a public repo, which it is). Users verify a download with `gh attestation verify transit-inspector-<version>.zip -R Tuxedo-Code/transit-inspector`. It proves where the zip was built, not that the code is safe.
+- **Repo settings:** Dependabot alerts and security updates, secret scanning with push protection, private vulnerability reporting. `SECURITY.md` says how to report.
+- **Note:** unpacked installs never auto-update, so dependency releases only reach users who reinstall. With a Web Store listing every merged release reaches users automatically, which makes the manual merge more important.
 
 ## Testing
 
