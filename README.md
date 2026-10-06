@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/Tuxedo-Code/transit-inspector/actions/workflows/ci.yml/badge.svg)](https://github.com/Tuxedo-Code/transit-inspector/actions/workflows/ci.yml)
 
-A DevTools extension for Chrome and Brave that adds a **Transit** tab next to Network. It lists the page's Fetch/XHR requests and shows Transit request payloads and response bodies decoded as readable EDN, next to the raw Transit.
+A DevTools extension for Chrome and Brave that adds a **Transit** tab next to Network. It lists the page's Fetch/XHR requests and shows [Transit](https://github.com/cognitect/transit-format) request payloads and response bodies decoded as readable [EDN](https://github.com/edn-format/edn), next to the raw Transit.
+
+Transit is a format by Cognitect for sending data between applications, most often Clojure and ClojureScript ones. It is usually encoded as JSON, but values like keywords, sets, dates and maps with non-string keys are packed into strings and arrays (`"~:user/id"`, `["^ ", ...]`), which makes the raw JSON in the Network panel hard to read. This extension shows it as EDN, Clojure's own data notation.
 
 - Requests carrying Transit are clickable; other Fetch/XHR requests are grayed out. Transit is detected by content type, or by sniffing bodies served as `application/json`.
 - Views: EDN, Transit, or both side by side. Fold, select, copy and search (Cmd+F) like in an editor.
