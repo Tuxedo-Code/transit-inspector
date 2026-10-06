@@ -308,11 +308,11 @@ Notes:
 - Found while checking CI, fixed separately: a real-DevTools e2e flake (about 8% of CI runs). `launch({ devtools: true })` opened a second DevTools, and the one under test then sometimes rendered no frames under Xvfb, so the Transit tab never reached its DOM. Now one DevTools is opened on the initial tab: 80/80 parallel CI runs passed. On failure, `waitForTransitTab` now reports the DevTools tabs, width and extension pages, and saves a screenshot.
 - Also seen: CI runs on release-please PRs show as failed with zero jobs (GitHub creates a run for the bot's `GITHUB_TOKEN` event but runs nothing). Harmless, but it puts a red X on every release PR. Planned under "Phase 2 - Later" (release-please with its own token).
 
-### [ ] T19 README: privacy and security breakdown
+### [x] T19 README: privacy and security breakdown
 Depends on: T17, T18
 
 - A short "Privacy and security" section in `README.md`, right after the feature bullets. Plain language, about 6-8 bullets, each claim true of what T17 and T18 shipped:
-  - no network requests, no tracking, no third parties, no permissions requested; captured traffic stays in DevTools memory; only the view mode is saved;
+  - no network requests, no tracking, no third parties, no permissions requested; captured traffic stays in DevTools memory; only the view mode and list width are saved;
   - why Chrome still shows "Read and change all your data on all websites" (every DevTools extension gets it; see spec "Privacy", "Chrome's install warning"), and that the build refuses the API behind it;
   - the CSP blocks all connections, and how to check it yourself (`manifest.json` in the zip, `connect-src 'none'`);
   - the build refuses APIs that could leak data some other way;
@@ -324,6 +324,11 @@ Depends on: T17, T18
 - Commit: `docs:`.
 
 Done when: every claim matches the shipped code and settings, and the section reads well rendered on GitHub.
+
+Notes:
+- The section sits right after the screenshot rather than between the feature bullets and the screenshot, so the screenshot stays near the top.
+- Each claim was checked against the code and the v0.3.2 release. Rendered through GitHub's Markdown API: six bullets, with the verify command as a code block inside its bullet.
+- Found while checking: the list width (resizable list) is also stored in `localStorage`. The spec "Privacy" promise used to name only the view mode; it now names both. Any new stored value has to update spec, README and this promise together.
 
 ## Phase 2 - Later
 

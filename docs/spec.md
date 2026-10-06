@@ -31,7 +31,7 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
 
 Binding, like the non-goals. Changing the promise, or loosening any of the enforcement below, is a spec change first. Enforced since T17.
 
-- **Promise.** The extension makes no network requests of its own: no telemetry, analytics or crash reporting, no remote code, no third-party services, no permissions in the manifest. Captured traffic lives only in the panel's memory and is gone when DevTools closes. The only stored value is the view mode, in `localStorage` (`src/ui/settings.ts`).
+- **Promise.** The extension makes no network requests of its own: no telemetry, analytics or crash reporting, no remote code, no third-party services, no permissions in the manifest. Captured traffic lives only in the panel's memory and is gone when DevTools closes. The only stored values are UI preferences, the view mode and the request list width, in `localStorage` (`src/ui/settings.ts`).
 - **Chrome's install warning.** Chrome still lists "Read and change all your data on all websites" for the extension (Brave too). Chrome adds it to every extension with a `devtools_page`, because DevTools extensions *could* run code in inspected pages (`chrome.devtools.inspectedWindow.eval`); verified in T17 by comparing two otherwise empty manifests, with and without `devtools_page`. Transit Inspector never uses that API, and the build tripwire below keeps it that way. User-facing text must say "no permissions requested" and explain the warning, never claim "no permissions".
 - **1. CSP.** `manifest.json` sets `content_security_policy.extension_pages` (applies to `devtools.html` and `panel.html`):
 

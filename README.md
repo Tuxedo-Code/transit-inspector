@@ -14,6 +14,24 @@ Transit is a format by Cognitect for sending data between applications, most oft
 
 ![The Transit panel showing a response as EDN next to the raw Transit](docs/screenshot.png)
 
+## Privacy and security
+
+The panel sees the requests and responses of the page you inspect, which often hold private data. It is built so that this data never leaves DevTools.
+
+- **No network access, no tracking.** The extension makes no requests of its own: no telemetry, analytics, crash reports or third-party services. Captured traffic stays in DevTools' memory and is gone when you close DevTools. The only things saved are your view mode and the request list's width.
+- **Enforced, not just promised.** The extension's [Content Security Policy](manifest.json) blocks every connection from its pages (`connect-src 'none'`). To check a release yourself, open `manifest.json` in the zip. CI proves inside real DevTools that nothing the panel sends reaches a server, and the build refuses APIs that could get data out some other way.
+- **No permissions requested.** The manifest asks for none. Chrome still shows "Read and change all your data on all websites" on the extension's details page: it says that about every DevTools extension, because DevTools extensions *can* run code in the page they inspect. Transit Inspector never does, and its build fails if that API (`chrome.devtools.inspectedWindow.eval`) shows up in the code.
+- **Dependencies** are updated monthly by Dependabot, merged by hand after CI, and audited in CI for known vulnerabilities and registry signatures. Install scripts of npm packages don't run.
+- **Verifiable releases.** Each release zip is built by CI and carries a signed build attestation. Check that a download came from this repository with [`gh attestation verify`](https://cli.github.com/manual/gh_attestation_verify):
+
+  ```sh
+  gh attestation verify transit-inspector-<version>.zip -R Tuxedo-Code/transit-inspector
+  ```
+
+- **Found a problem?** Please report it privately, as described in [SECURITY.md](SECURITY.md).
+
+Details and the reasoning behind each measure: [docs/spec.md "Privacy"](docs/spec.md#privacy) and ["Dependencies and supply chain"](docs/spec.md#dependencies-and-supply-chain).
+
 ## Install as an extension
 
 1. Download `transit-inspector-<version>.zip` from the [latest release](https://github.com/Tuxedo-Code/transit-inspector/releases/latest) and unzip it into a folder you'll keep.
