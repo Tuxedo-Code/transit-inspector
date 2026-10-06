@@ -10,7 +10,7 @@ import {
 } from "@codemirror/language";
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
-import { EditorState, type Extension } from "@codemirror/state";
+import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { drawSelection, EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { styleTags, tags } from "@lezer/highlight";
 import { clojureLanguage } from "@nextjournal/lang-clojure";
@@ -133,7 +133,58 @@ const viewerTheme = EditorView.theme({
   },
 });
 
-function extensionsFor(language: CodeLanguage, wrap: boolean, onCursor: (offset: number) => void): Extension[] {
+interface Range {
+  from: number;
+  to: number;
+}
+
+/**
+ * Form boundaries from the printer's path index (EDN pane). Unlike CodeMirror's syntax tree, which is parsed lazily
+ * and can stop short inside a multi-MB body, they are exact everywhere.
+ */
+export interface Forms {
+  /** The form whose bracket is the character at `offset`. */
+  at(offset: number): Range | null;
+  /** The smallest form around a selection. */
+  around(from: number, to: number): Range | null;
+}
+
+/** Double-clicking a bracket selects its form; Cmd+I expands the selection form by form, like Calva. */
+function formSelection(forms: Forms): Extension[] {
+  return [
+    keymap.of([
+      {
+        key: "Mod-i",
+        preventDefault: true,
+        run(view) {
+          const { from, to } = view.state.selection.main;
+          const form = forms.around(from, to);
+          // No scrollIntoView, unlike CodeMirror's own Cmd+I: it would jump to the far end of a big form.
+          if (form) view.dispatch({ selection: { anchor: form.from, head: form.to } });
+          return true;
+        },
+      },
+    ]),
+    // A selection style rather than a plain mousedown handler: CodeMirror then owns the selection for the whole
+    // gesture, as for its own double-click. Otherwise the browser's caret move from a first click inside a selection
+    // (left to the browser for drag and drop) can arrive later and undo the form selection.
+    EditorView.mouseSelectionStyle.of((view, event) => {
+      if (event.button !== 0 || event.detail !== 2) return null;
+      const { pos, assoc } = view.posAndSideAtCoords({ x: event.clientX, y: event.clientY }, false);
+      // The character under the pointer, picked like CodeMirror's own double-click does.
+      const form = forms.at(assoc < 0 ? pos - 1 : pos);
+      if (!form) return null;
+      return { get: () => EditorSelection.single(form.from, form.to), update: () => false };
+    }),
+  ];
+}
+
+function extensionsFor(
+  language: CodeLanguage,
+  wrap: boolean,
+  forms: Forms | undefined,
+  onCursor: (offset: number) => void,
+): Extension[] {
   return [
     lineNumbers(),
     ...(language === "edn" ? [foldGutter(), ednLanguage] : [json()]),
@@ -141,6 +192,8 @@ function extensionsFor(language: CodeLanguage, wrap: boolean, onCursor: (offset:
     bracketMatching(),
     highlightSelectionMatches(),
     search({ top: true }),
+    // Before the default keymap, so its Cmd+I wins.
+    ...(forms ? formSelection(forms) : []),
     keymap.of([...searchKeymap, ...foldKeymap, ...defaultKeymap]),
     syntaxHighlighting(highlightStyle),
     viewerTheme,
@@ -160,12 +213,17 @@ interface Props {
   /** Wrap long lines (the raw pane, which shows bodies unformatted). */
   wrap?: boolean;
   diagnostics: readonly Diagnostic[];
+  /** Enables selecting forms by bracket double-click and Cmd+I. */
+  forms?: Forms;
   onCursor?: (offset: number) => void;
   label: string;
 }
 
-/** A read-only CodeMirror viewer with default editor behavior: selection, copy, folding, Cmd+F search. */
-export function CodeView({ doc, language, wrap = false, diagnostics, onCursor, label }: Props) {
+/**
+ * A read-only CodeMirror viewer with default editor behavior (selection, copy, folding, Cmd+F search), plus form
+ * selection when given `forms`.
+ */
+export function CodeView({ doc, language, wrap = false, diagnostics, forms, onCursor, label }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const cursorListener = useRef(onCursor);
@@ -189,12 +247,12 @@ export function CodeView({ doc, language, wrap = false, diagnostics, onCursor, l
     current.setState(
       EditorState.create({
         doc,
-        extensions: extensionsFor(language, wrap, (offset) => cursorListener.current?.(offset)),
+        extensions: extensionsFor(language, wrap, forms, (offset) => cursorListener.current?.(offset)),
       }),
     );
     if (diagnostics.length > 0) current.dispatch(setDiagnostics(current.state, [...diagnostics]));
     current.contentDOM.setAttribute("aria-label", label);
-  }, [doc, language, wrap, diagnostics, label]);
+  }, [doc, language, wrap, forms, diagnostics, label]);
 
   return <div class="code-view" ref={host} />;
 }

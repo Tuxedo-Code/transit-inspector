@@ -9,6 +9,13 @@ export interface PathNode {
   to: number;
   path: PathStep[];
   children: PathNode[];
+  /** Collections only: the opening delimiter's length (2 for `#{`). The closing one is always one character. */
+  open?: number;
+}
+
+export interface Range {
+  from: number;
+  to: number;
 }
 
 export interface Mark extends Problem {
@@ -54,7 +61,39 @@ export function pathAt(index: PathNode, offset: number): PathStep[] | null {
   }
 }
 
+/**
+ * The collection whose opening or closing delimiter is the character at `offset`, e.g. to select a form by
+ * double-clicking a bracket; null for any other character, including brackets inside strings.
+ */
+export function formAt(index: PathNode, offset: number): Range | null {
+  let node: PathNode | null = index;
+  while (node && node.from <= offset && offset < node.to) {
+    if (node.open && (offset < node.from + node.open || offset === node.to - 1)) return node;
+    const child = lastStartingAtOrBefore(node.children, offset);
+    node = child && offset < child.to ? child : null;
+  }
+  return null;
+}
+
+/** The smallest value strictly larger than the range that contains it, e.g. to expand a selection; null at the top. */
+export function enclosingForm(index: PathNode, from: number, to: number): Range | null {
+  let found: Range | null = null;
+  let node: PathNode | null = index;
+  while (node && node.from <= from && to <= node.to) {
+    if (node.to - node.from > to - from) found = node;
+    const child = lastStartingAtOrBefore(node.children, from);
+    node = child && to <= child.to ? child : null;
+  }
+  return found;
+}
+
 function childAt(children: PathNode[], offset: number): PathNode | null {
+  const found = lastStartingAtOrBefore(children, offset);
+  return found && offset <= found.to ? found : null;
+}
+
+/** Children are in text order, so binary search for the last one starting at or before `offset`. */
+function lastStartingAtOrBefore(children: PathNode[], offset: number): PathNode | null {
   let lo = 0;
   let hi = children.length - 1;
   let found: PathNode | null = null;
@@ -68,7 +107,7 @@ function childAt(children: PathNode[], offset: number): PathNode | null {
       hi = mid - 1;
     }
   }
-  return found && offset <= found.to ? found : null;
+  return found;
 }
 
 class Printer {
@@ -84,14 +123,17 @@ class Printer {
   node(node: EdnNode, path: PathStep[], flat: boolean): PathNode {
     const from = this.offset;
     const children: PathNode[] = [];
+    let open: number | undefined;
     switch (node.type) {
       case "map":
         this.map(node, path, flat || this.fits(node), children);
+        open = 1;
         break;
       case "vector":
       case "list":
       case "set":
         this.sequence(node, path, flat || this.fits(node), children);
+        open = BRACKETS[node.type][0].length;
         break;
       case "tagged":
         this.emit(`#${node.tag} `);
@@ -101,7 +143,7 @@ class Printer {
         this.emit(scalar(node));
     }
     if (node.problem) this.marks.push({ ...node.problem, from, to: this.offset });
-    return { from, to: this.offset, path, children };
+    return open ? { from, to: this.offset, path, children, open } : { from, to: this.offset, path, children };
   }
 
   private map(node: Extract<EdnNode, { type: "map" }>, path: PathStep[], flat: boolean, children: PathNode[]): void {

@@ -1,8 +1,9 @@
 import type { Diagnostic } from "@codemirror/lint";
 import { useMemo, useState } from "preact/hooks";
+import { enclosingForm, formAt } from "../edn/print";
 import type { RequestRow } from "../model";
 import { type BodyView, type Direction, type RawView, viewBody } from "./body-view";
-import { CodeView } from "./CodeView";
+import { CodeView, type Forms } from "./CodeView";
 import { CloseIcon } from "./icons";
 import { PathFooter } from "./PathFooter";
 import type { ViewMode } from "./settings";
@@ -94,6 +95,11 @@ function EdnPane({ view }: { view: BodyView }) {
         : [],
     [edn],
   );
+  const forms = useMemo<Forms | undefined>(() => {
+    if (edn.kind !== "edn") return undefined;
+    const { index } = edn.printed;
+    return { at: (offset) => formAt(index, offset), around: (from, to) => enclosingForm(index, from, to) };
+  }, [edn]);
   if (edn.kind === "message") return <Message text={edn.text} error={edn.error} />;
   return (
     <div class="pane">
@@ -101,6 +107,7 @@ function EdnPane({ view }: { view: BodyView }) {
         doc={edn.printed.text}
         language="edn"
         diagnostics={diagnostics}
+        forms={forms}
         onCursor={setOffset}
         label="Decoded EDN"
       />

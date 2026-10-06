@@ -67,6 +67,40 @@ describe("the Transit panel in real DevTools", () => {
     );
   });
 
+  it("selects a whole form by double-clicking its bracket", async () => {
+    // The set's `{`, in the panel's coordinates, read from CodeMirror's view (linked from its DOM).
+    const inPanel = await panel.evaluate<{ x: number; y: number }>(`(() => {
+      const { view } = document.querySelector(".pane .cm-content").cmTile.root;
+      const offset = view.state.doc.toString().indexOf("#{") + 1;
+      const start = view.coordsAtPos(offset, 1);
+      const end = view.coordsAtPos(offset + 1, -1);
+      return { x: (start.left + end.right) / 2, y: (start.top + start.bottom) / 2 };
+    })()`);
+    const frame = await devtools.evaluate(() => {
+      const find = (root: Document | ShadowRoot): HTMLIFrameElement | null => {
+        for (const el of root.querySelectorAll("iframe")) if (el.src.endsWith("/panel.html")) return el;
+        for (const el of root.querySelectorAll("*")) {
+          const found = el.shadowRoot && find(el.shadowRoot);
+          if (found) return found;
+        }
+        return null;
+      };
+      const rect = find(document)?.getBoundingClientRect();
+      return rect && { x: rect.x, y: rect.y };
+    });
+    if (!frame) throw new Error("No Transit panel frame in DevTools");
+    await devtools.mouse.click(frame.x + inPanel.x, frame.y + inPanel.y, { count: 2 });
+    await panel.waitFor<string>(
+      `(() => { const { state } = document.querySelector(".pane .cm-content").cmTile.root.view;
+        return state.sliceDoc(state.selection.main.from, state.selection.main.to); })()`,
+      (text) => text === '#{"a" "b"}',
+    );
+    await panel.waitFor<string>(
+      `document.querySelector(".path-footer .path")?.textContent ?? ""`,
+      (path) => path === "[:tags]",
+    );
+  });
+
   describe("Cmd+F", () => {
     const CM_SEARCH_OPEN = `!!document.querySelector(".cm-search")`;
     const CM_SEARCH_FOCUSED = `!!document.activeElement?.matches(".cm-search input[name=search]")`;

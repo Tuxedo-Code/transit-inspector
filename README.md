@@ -8,6 +8,7 @@ Transit is a format by Cognitect for sending data between applications, most oft
 
 - Requests carrying Transit are clickable; other Fetch/XHR requests are grayed out. Transit is detected by content type, or by sniffing bodies served as `application/json`.
 - Views: EDN, Transit, or both side by side. Fold, select, copy and search like in an editor: Cmd+F (Ctrl+F) anywhere in the panel searches the open pane.
+- Double-click a bracket in the EDN view to select the whole form, or press Cmd+I (Ctrl+I on Windows/Linux) to expand the selection form by form, like Calva.
 - The footer under the EDN view shows the `get-in` path of the value at the cursor, with a Copy button.
 - Drag the border between the request list and the detail view to resize them, like in the Network panel. The width is remembered.
 - Follows the DevTools light/dark theme. Observe only: it never changes requests.

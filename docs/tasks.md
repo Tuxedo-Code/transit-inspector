@@ -348,7 +348,10 @@ From spec "Later". Not to be started until v1 is done:
   - Clicking a row leaves focus on `<body>`, so key events from the list never pass through `.app`: the Cmd+F handler has to listen on `document` (capture phase, ahead of DevTools' forwarder).
   - Tried and dropped: focusing the panel on `panel.onShown`. It fixes Cmd+F right after clicking the tab, but arrowing through DevTools' tabs then loses focus to the panel.
   - Real-DevTools tests press keys through the DevTools window (`pressShortcut`) and read DevTools' own UI (`devtoolsUi`: search bar, Console drawer, command menu) in `e2e/devtools.ts`.
-- [~] Double-click a bracket in the EDN pane to select the whole form; document Cmd+I / Ctrl+I (expand selection)
+- [x] Double-click a bracket in the EDN pane to select the whole form; Cmd+I / Ctrl+I expands the selection (spec "Form selection")
+  - `formAt` and `enclosingForm` in `src/edn/print.ts` work on the path index; collection nodes record their opening delimiter's length (`open`).
+  - CodeMirror's own Cmd+I stopped 3,007 characters into the 3 MB sample (lazy parse), so the EDN pane binds its own ahead of the default keymap.
+  - UI tests read CodeMirror's state through `.cm-content`'s `cmTile.root.view` (internal, test only) and click by document offset (`doubleClickEdn`).
 - [ ] Vertical scroll sync between panes
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)

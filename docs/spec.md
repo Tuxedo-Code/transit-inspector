@@ -164,11 +164,16 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - **Panes** are read-only code editors (CodeMirror 6):
   - decoded EDN with Clojure/EDN highlighting;
   - raw Transit with JSON highlighting, shown exactly as received: no re-formatting, line wrapping on.
-- **Default editor behavior** (no custom click or double-click behavior):
+- **Default editor behavior**, with one custom click behavior (form selection, below):
   - normal mouse/keyboard selection, Cmd+A and Cmd+C, including long strings and selections larger than the screen;
   - folding arrows in the gutter of the EDN pane for maps, vectors, lists and sets, with everything unfolded by default (the raw pane has no folding since it is not re-formatted);
   - Cmd+F search within the pane (CodeMirror's search panel), with DevTools' own search bar kept out (see "Search" below);
   - large documents stay fast because the editor only draws the visible part.
+- **Form selection** (EDN pane only), to copy a nested value out of a large body:
+  - double-clicking an opening or closing bracket (`{ [ ( #{ } ] )`) selects the whole form. Natively it would select only the bracket, so nothing is lost; double-clicking anything else, including brackets inside strings, selects a word as usual;
+  - Cmd+I (Ctrl+I) expands the selection to the enclosing form, repeatedly, like Calva;
+  - both use the path index, not CodeMirror's syntax tree: CodeMirror parses lazily, and its own Cmd+I stopped about 3 KB into a 3 MB body. The raw pane keeps CodeMirror's Cmd+I and has no bracket double-click (its cache codes like `"^0"` make a copied subtree invalid on its own);
+  - selecting a form doesn't scroll, so a big form doesn't jump the view to its far end.
 - **Path footer** (EDN pane only):
   - a footer under the EDN pane shows the EDN path of the value at the cursor or selection, as a `get-in` vector (e.g. `[:user :orders 0 :id]`), from the path index;
   - it updates as the cursor moves and is empty when the cursor is not on a value;

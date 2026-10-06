@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeTransit } from "../transit/decode";
-import { formatPath, pathAt, printEdn } from "./print";
+import { enclosingForm, formAt, formatPath, pathAt, printEdn } from "./print";
 
 function printed(transit: string) {
   const result = decodeTransit(transit);
@@ -34,6 +34,69 @@ describe("layout", () => {
       `["^ ","~:items",[${Array.from({ length: 6 }, (_, i) => `["^ ","~:long-name",${i},"~:other",${i}]`).join(",")}]]`,
     );
     expect(text.split("\n")[1]?.startsWith("         {:long-name 1")).toBe(true);
+  });
+});
+
+describe("formAt", () => {
+  /** The form selected by double-clicking the character at `offset`, or null. */
+  function formText(transit: string, offset: (text: string) => number): string | null {
+    const { text, index } = printed(transit);
+    const form = formAt(index, offset(text));
+    return form && text.slice(form.from, form.to);
+  }
+
+  it("selects a collection from its opening or closing bracket", () => {
+    for (const [transit, expected] of [
+      ['["^ ","~:a",1]', "{:a 1}"],
+      ["[1,2]", "[1 2]"],
+      ['["~#list",[1,2]]', "(1 2)"],
+    ] as const) {
+      expect(formText(transit, () => 0)).toBe(expected);
+      expect(formText(transit, (text) => text.length - 1)).toBe(expected);
+    }
+  });
+
+  it("selects a set from either character of #{", () => {
+    for (const offset of [0, 1, 4]) expect(formText('["~#set",["~:x"]]', () => offset)).toBe("#{:x}");
+  });
+
+  it("picks the innermost form for nested brackets, also when a bracket follows a value directly", () => {
+    expect([0, 1, 3, 4].map((offset) => formText("[[1]]", () => offset))).toEqual(["[[1]]", "[1]", "[1]", "[[1]]"]);
+  });
+
+  it("selects the value of a tagged collection, not the tag", () => {
+    expect(formText('["~#point",["^ ","~:x",1]]', (text) => text.indexOf("{"))).toBe("{:x 1}");
+    expect(formText('["~#point",["^ ","~:x",1]]', () => 0)).toBeNull();
+  });
+
+  it("ignores scalars, brackets inside strings and offsets outside the text", () => {
+    expect(formText("[[1]]", () => 2)).toBeNull();
+    expect(formText('["~:a","{[("]', (text) => text.indexOf("{"))).toBeNull();
+    expect(formText("[1]", () => 3)).toBeNull();
+  });
+});
+
+describe("enclosingForm", () => {
+  it("expands a cursor step by step to the whole document", () => {
+    const { text, index } = printed(NESTED);
+    const cursor = text.indexOf(":order/id") + 2;
+    const steps: string[] = [];
+    for (let range = enclosingForm(index, cursor, cursor); range; range = enclosingForm(index, range.from, range.to)) {
+      steps.push(text.slice(range.from, range.to));
+    }
+    expect(steps).toEqual([
+      ":order/id",
+      '{:order/id 1 :order/tags #{:new} :order/log ("created" "paid")}',
+      '[{:order/id 1 :order/tags #{:new} :order/log ("created" "paid")}]',
+      text,
+    ]);
+  });
+
+  it("expands a selection that already covers a value to the value around it", () => {
+    const { text, index } = printed('["^ ","~:a",[1,2]]');
+    const from = text.indexOf("1");
+    const range = enclosingForm(index, from, from + 1);
+    expect(range && text.slice(range.from, range.to)).toBe("[1 2]");
   });
 });
 

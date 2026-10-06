@@ -1,6 +1,7 @@
 // The panel UI in a normal headless tab with the sample data (src/sources/dev-samples.ts).
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
+import type { EditorView } from "@codemirror/view";
 import puppeteer, { type Browser, type Page } from "puppeteer";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -89,6 +90,36 @@ async function dragSplitter(x: number): Promise<void> {
   await page.mouse.down();
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.up();
+}
+
+/** CodeMirror links its view from the content DOM; tests read the editor's state through it. */
+type ViewDom = { cmTile: { root: { view: EditorView } } };
+
+/** The EDN pane's selection, document and its length. */
+const ednSelection = () =>
+  page.$eval(".pane .cm-content", (content) => {
+    const { state } = (content as unknown as ViewDom).cmTile.root.view;
+    const { from, to } = state.selection.main;
+    return { from, to, text: state.sliceDoc(from, to), doc: state.doc.toString(), length: state.doc.length };
+  });
+
+/** Double-clicks the character at `offset` in the EDN pane, on its left or right half. */
+async function doubleClickEdn(offset: number, half: "left" | "right"): Promise<void> {
+  const point = await page.$eval(
+    ".pane .cm-content",
+    (content, offset, half) => {
+      const { view } = (content as unknown as ViewDom).cmTile.root;
+      const start = view.coordsAtPos(offset, 1);
+      const end = view.coordsAtPos(offset + 1, -1);
+      if (!start || !end) return null;
+      const quarter = (end.right - start.left) / 4;
+      return { x: half === "left" ? start.left + quarter : end.right - quarter, y: (start.top + start.bottom) / 2 };
+    },
+    offset,
+    half,
+  );
+  if (!point) throw new Error(`Offset ${offset} isn't drawn`);
+  await page.mouse.click(point.x, point.y, { count: 2 });
 }
 
 const ednText = () => page.$eval(".pane .cm-content", (content) => (content as HTMLElement).innerText);
@@ -213,6 +244,55 @@ describe("detail view", () => {
     expect(await page.evaluate(() => document.activeElement?.matches(".cm-search input[name=search]"))).toBe(true);
   });
 
+  it("selects a whole form by double-clicking either of its brackets", async () => {
+    await selectRow("42");
+    const { doc } = await ednSelection();
+    const orders = doc.indexOf("[{:order/id");
+    const order = orders + 1;
+    const path = () => page.$eval(".path-footer .path", (element) => element.textContent);
+
+    // `[{` sit side by side: each half picks its own bracket's form.
+    await doubleClickEdn(order, "left");
+    const map = await ednSelection();
+    expect(map.from).toBe(order);
+    expect(map.text.startsWith("{:order/id 1001")).toBe(true);
+    expect(map.text.endsWith(":item/price 9.99M}]}")).toBe(true);
+    expect(await path()).toBe("[:user/orders 0]");
+
+    await doubleClickEdn(orders, "right");
+    const vector = await ednSelection();
+    expect(vector.from).toBe(orders);
+    expect(vector.text.endsWith("}]")).toBe(true);
+    expect(await path()).toBe("[:user/orders]");
+
+    // The closing bracket selects the same form as the opening one.
+    await doubleClickEdn(map.to - 1, "left");
+    expect(await ednSelection()).toMatchObject({ from: map.from, to: map.to });
+
+    // Elsewhere, double-click selects a word as usual.
+    await doubleClickEdn(doc.indexOf("order/total") + 1, "left");
+    expect((await ednSelection()).text).toBe("order");
+  });
+
+  it("expands the selection form by form with Cmd+I, up to the whole multi-MB body", async () => {
+    const mod = process.platform === "darwin" ? "Meta" : "Control";
+    await selectRow("large");
+    await clickInEdn(":row/id");
+    const sizes: number[] = [];
+    for (let press = 0; press < 8; press++) {
+      await page.keyboard.down(mod);
+      await page.keyboard.press("i");
+      await page.keyboard.up(mod);
+      const { from, to } = await ednSelection();
+      if (to - from === sizes.at(-1)) break;
+      sizes.push(to - from);
+    }
+    const { length } = await ednSelection();
+    // The keyword, its row map, the 20,000-row vector, then the whole document.
+    expect(sizes.at(-1)).toBe(length);
+    expect(sizes.at(-2)).toBe(length - "{:report/rows ".length - "}".length);
+  });
+
   it("shows decode errors and marks them in the raw body", async () => {
     await selectRow("broken");
     await page.click(".segmented button:nth-child(2)");
@@ -323,6 +403,8 @@ describe("screenshots for review", () => {
       await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: scheme }]);
       await screenshot(`list-${scheme}`);
       await selectRow("42");
+      await doubleClickEdn((await ednSelection()).doc.indexOf("{:order/id"), "left");
+      await screenshot(`form-select-${scheme}`);
       await clickInEdn(":order/status");
       await screenshot(`edn-${scheme}`);
       const mod = process.platform === "darwin" ? "Meta" : "Control";
