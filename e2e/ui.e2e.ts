@@ -195,6 +195,24 @@ describe("detail view", () => {
     expect(await pressedViewMode()).toBe("Transit");
   });
 
+  it("opens the search of the pane last read with Cmd+F from outside the panes", async () => {
+    const mod = process.platform === "darwin" ? "Meta" : "Control";
+    const searchIn = () =>
+      page.$$eval(".pane", (panes) => panes.map((pane) => Boolean(pane.querySelector(".cm-search"))));
+    await selectRow("42");
+    await page.click(".segmented button:nth-child(2)");
+    await page.waitForFunction(() => document.querySelectorAll(".cm-editor").length === 2);
+    // Read the raw pane, then click outside the panes.
+    await page.click(".pane:nth-child(2) .cm-content");
+    await page.click(".summary .url");
+    await page.keyboard.down(mod);
+    await page.keyboard.press("f");
+    await page.keyboard.up(mod);
+    await page.waitForSelector(".cm-search");
+    expect(await searchIn()).toEqual([false, true]);
+    expect(await page.evaluate(() => document.activeElement?.matches(".cm-search input[name=search]"))).toBe(true);
+  });
+
   it("shows decode errors and marks them in the raw body", async () => {
     await selectRow("broken");
     await page.click(".segmented button:nth-child(2)");

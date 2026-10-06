@@ -7,7 +7,7 @@ A DevTools extension for Chrome and Brave that adds a **Transit** tab next to Ne
 Transit is a format by Cognitect for sending data between applications, most often Clojure and ClojureScript ones. It is usually encoded as JSON, but values like keywords, sets, dates and maps with non-string keys are packed into strings and arrays (`"~:user/id"`, `["^ ", ...]`), which makes the raw JSON in the Network panel hard to read. This extension shows it as EDN, Clojure's own data notation.
 
 - Requests carrying Transit are clickable; other Fetch/XHR requests are grayed out. Transit is detected by content type, or by sniffing bodies served as `application/json`.
-- Views: EDN, Transit, or both side by side. Fold, select, copy and search (Cmd+F) like in an editor.
+- Views: EDN, Transit, or both side by side. Fold, select, copy and search like in an editor: Cmd+F (Ctrl+F) anywhere in the panel searches the open pane.
 - The footer under the EDN view shows the `get-in` path of the value at the cursor, with a Copy button.
 - Drag the border between the request list and the detail view to resize them, like in the Network panel. The width is remembered.
 - Follows the DevTools light/dark theme. Observe only: it never changes requests.
@@ -83,6 +83,7 @@ Then load the `dist/` folder with **Load unpacked** as above. After pulling chan
 - App-specific Transit tags have no handlers here: they show as `#tag value` with a warning underline. URIs show as `#uri "..."`, which standard EDN readers don't know.
 - Paths in the footer use list positions too, but `get-in` can't index into lists, so such a path won't work as-is in Clojure.
 - The URL filter is a plain case-insensitive substring match: no wildcards or regular expressions.
+- Right after you switch to the Transit tab, Cmd+F opens DevTools' own search bar, which can't search the panel. Click anywhere in the panel first.
 - Bodies are decoded when you open them. A 3 MB response takes about 100 ms; much larger ones may briefly freeze the panel.
 
 ## Run locally (development)

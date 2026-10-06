@@ -1,3 +1,5 @@
+import { openSearchPanel } from "@codemirror/search";
+import { EditorView } from "@codemirror/view";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { RequestRow } from "../model";
 import type { RequestStore } from "../store";
@@ -14,6 +16,34 @@ function useRows(store: RequestStore): readonly RequestRow[] {
   return rows;
 }
 
+const IS_MAC = /Mac/.test(navigator.userAgent);
+
+/** The editor that last had focus, so Cmd+F from outside the panes searches the one the user was reading. */
+let lastEditor: Element | null = null;
+
+function rememberEditor(event: FocusEvent) {
+  const editor = (event.target as Element).closest(".cm-editor");
+  if (editor) lastEditor = editor;
+}
+
+/**
+ * Cmd+F (Ctrl+F) outside the editors searches the open pane, or focuses the filter box when none is open. DevTools'
+ * own search bar never opens from the panel: it can't search an extension panel (docs/spec.md "Detail view").
+ * Listens on the document in the capture phase: with focus on no control the key targets <body>, and DevTools'
+ * forwarding listener sits on the document too. Inside an editor, CodeMirror handles the key and CodeView stops it.
+ */
+function searchOnModF(event: KeyboardEvent) {
+  const mod = IS_MAC ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  if (!mod || event.shiftKey || event.altKey || event.key.toLowerCase() !== "f") return;
+  if ((event.target as Element).closest(".cm-editor")) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const editor = lastEditor?.isConnected ? lastEditor : document.querySelector(".panes .cm-editor");
+  const view = editor && EditorView.findFromDOM(editor as HTMLElement);
+  if (view) openSearchPanel(view);
+  else document.querySelector<HTMLInputElement>(".toolbar .filter input")?.focus();
+}
+
 export function App({ store }: { store: RequestStore }) {
   const rows = useRows(store);
   const [filter, setFilter] = useState("");
@@ -22,6 +52,11 @@ export function App({ store }: { store: RequestStore }) {
   const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
   const [listWidth, setListWidth] = useState(loadListWidth);
   const listPane = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    document.addEventListener("keydown", searchOnModF, { capture: true });
+    return () => document.removeEventListener("keydown", searchOnModF, { capture: true });
+  }, []);
 
   const visible = useMemo(() => rows.filter((row) => matchesFilter(row.url, filter)), [rows, filter]);
   const selected = selectedId === null ? null : (rows.find((row) => row.id === selectedId) ?? null);
@@ -55,7 +90,7 @@ export function App({ store }: { store: RequestStore }) {
     : undefined;
 
   return (
-    <div class="app">
+    <div class="app" onFocusIn={rememberEditor}>
       <div class="toolbar">
         <button
           type="button"

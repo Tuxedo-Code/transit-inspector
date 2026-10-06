@@ -167,13 +167,16 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - **Default editor behavior** (no custom click or double-click behavior):
   - normal mouse/keyboard selection, Cmd+A and Cmd+C, including long strings and selections larger than the screen;
   - folding arrows in the gutter of the EDN pane for maps, vectors, lists and sets, with everything unfolded by default (the raw pane has no folding since it is not re-formatted);
-  - Cmd+F search within the pane;
+  - Cmd+F search within the pane (CodeMirror's search panel), with DevTools' own search bar kept out (see "Search" below);
   - large documents stay fast because the editor only draws the visible part.
 - **Path footer** (EDN pane only):
   - a footer under the EDN pane shows the EDN path of the value at the cursor or selection, as a `get-in` vector (e.g. `[:user :orders 0 :id]`), from the path index;
   - it updates as the cursor moves and is empty when the cursor is not on a value;
   - a small "Copy" button next to the path copies it;
   - no keyboard shortcut and no toolbar button.
+- **Search:** Cmd+F (Ctrl+F) anywhere in the panel opens CodeMirror's search in a pane: the focused one, or else the one last focused, or else the first visible. With no pane open it focuses the URL filter box.
+  - DevTools' own search bar never opens from the panel. It can't search an extension panel (it only hands the query to the extension's `onSearch`), and the Network panel has its own search instead.
+  - Not covered: with focus outside the panel's page, e.g. right after clicking the Transit tab, the key never reaches the panel, so DevTools' bar opens and finds nothing. Focusing the panel on `onShown` would fix that, but it also fires when keyboard users arrow through DevTools' tabs and would pull focus out of the tab strip (verified 2026-10-06 in Chrome 154), so it isn't done.
 - **Side by side:** each pane scrolls on its own horizontally. Vertical scroll sync is a later nice-to-have.
 
 ### Look and feel
@@ -286,7 +289,7 @@ User-facing limitations are listed in the README ("Limitations"); keep that sect
 
 - **Clipboard (verified):** `navigator.clipboard.writeText` fails in the panel ("Document is not focused"); `document.execCommand('copy')` with a temporary textarea works. The path footer's Copy button tries the former and falls back to the latter. Native Cmd+C in the editor is unaffected.
 - Bodies of old requests may be evicted by DevTools; show the "body no longer available" state.
-- **Shortcut forwarding (verified):** DevTools injects a `keydown` listener on the panel's `document` (bubble phase) that forwards its global shortcuts (Cmd+F, Esc, Cmd+Shift+P...) to DevTools, without checking whether the page already handled them. Keys an editor handles are therefore stopped at the editor (`src/ui/CodeView.tsx`); every other shortcut still reaches DevTools.
+- **Shortcut forwarding (verified):** DevTools injects a `keydown` listener on the panel's `document` (bubble phase) that forwards its global shortcuts (Cmd+F, Esc, Cmd+Shift+P...) to DevTools, without checking whether the page already handled them. Keys an editor handles are therefore stopped at the editor (`src/ui/CodeView.tsx`), and Cmd+F elsewhere is caught on the document in the capture phase (`src/ui/App.tsx`). Every other shortcut still reaches DevTools.
 
 ## Later (not v1)
 

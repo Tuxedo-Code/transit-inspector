@@ -341,7 +341,15 @@ From spec "Later". Not to be started until v1 is done:
 - [ ] Keyboard up/down navigation through requests
 - [ ] Watch a path across calls to one endpoint (see spec "Later"; the reload workflow needs Preserve log)
 - [x] Resizable list/detail split
-  - `src/ui/Splitter.tsx`; behavior measured from the Network panel's own splitter, see spec "Layout". Covered by UI tests; the drag (pointer capture across the CodeMirror panes) and persistence were also checked once in real DevTools.- [ ] Vertical scroll sync between panes
+  - `src/ui/Splitter.tsx`; behavior measured from the Network panel's own splitter, see spec "Layout". Covered by UI tests; the drag (pointer capture across the CodeMirror panes) and persistence were also checked once in real DevTools.
+- [x] Cmd+F searches the open pane, never DevTools' bar:
+  - Bug: in an editor, Cmd+F opened CodeMirror's search and DevTools' own bar, which took focus and can't search extension panels (DevTools only sends the query to the extension's `onSearch`). From the request list, Cmd+F opened only that useless bar.
+  - Cmd+F anywhere in the panel opens CodeMirror's search in the visible pane (filter box when nothing is selected); keys the editor handles never reach DevTools. See spec "Search" and "Known risks".
+  - Clicking a row leaves focus on `<body>`, so key events from the list never pass through `.app`: the Cmd+F handler has to listen on `document` (capture phase, ahead of DevTools' forwarder).
+  - Tried and dropped: focusing the panel on `panel.onShown`. It fixes Cmd+F right after clicking the tab, but arrowing through DevTools' tabs then loses focus to the panel.
+  - Real-DevTools tests press keys through the DevTools window (`pressShortcut`) and read DevTools' own UI (`devtoolsUi`: search bar, Console drawer, command menu) in `e2e/devtools.ts`.
+- [~] Double-click a bracket in the EDN pane to select the whole form; document Cmd+I / Ctrl+I (expand selection)
+- [ ] Vertical scroll sync between panes
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)
 - [ ] Custom extension icons
