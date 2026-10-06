@@ -239,7 +239,7 @@ Depends on: T15
 Done when: a release PR merged to `main` produces a GitHub Release whose zip loads unpacked and decodes in real DevTools.
 
 Notes:
-- `.release-please-manifest.json` starts at `0.0.0` with `bootstrap-sha` at the last pre-release-please commit, so the first `feat:` commit proposes 0.1.0 (the version package.json already had).
+- `.release-please-manifest.json` starts at `0.0.0` with `bootstrap-sha` at the last pre-release-please commit. Without `initial-version: "0.1.0"`, release-please treats 0.0.0 as "never released" and the node strategy proposes 1.0.0.
 - Verified locally: unit tests, lint, actionlint, and the zip has `manifest.json` at its root with the version. Still open: the first real release PR, release, and zip check.
 
 ## Phase 2 - Later
