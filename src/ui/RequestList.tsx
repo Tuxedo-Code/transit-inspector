@@ -35,7 +35,7 @@ export function RequestList({ rows, selectedId, onSelect, compact }: Props) {
   };
 
   return (
-    <div class={`request-list${compact ? " compact" : ""}`} ref={scroller} onScroll={onScroll}>
+    <div class="request-list" ref={scroller} onScroll={onScroll}>
       <table>
         <thead>
           <tr>

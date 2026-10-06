@@ -103,6 +103,12 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
 
 - Left: request list. Right: detail view of the selected request.
 - The list can be hidden with a toolbar toggle so the detail view gets the full width, and shown again.
+- **Resizable split**, like the Network panel's (measured in Chrome 154):
+  - drag the list's right border (an invisible 6px strip centered on it, `ew-resize` cursor, no keyboard control);
+  - the list keeps at least 50px and the detail view at least 30px, so its Close button stays reachable;
+  - the width is remembered across requests and sessions, in pixels;
+  - if the panel gets too narrow for it, the list shrinks, and grows back when there is room again;
+  - until the first drag, the list takes `min(280px, 35%)`.
 
 ### Request list
 
@@ -238,7 +244,6 @@ User-facing limitations are listed in the README ("Limitations"); keep that sect
 - Wildcard/glob and regex URL filters.
 - Toggle to hide non-Transit rows.
 - Keyboard up/down navigation through requests, including while the list is hidden.
-- Resizable list/detail split.
 - Vertical scroll sync between EDN and Transit panes.
 - Dimmed parent path next to the Name when names collide.
 - Web Worker decoding.

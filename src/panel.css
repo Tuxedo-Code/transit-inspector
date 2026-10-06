@@ -214,16 +214,36 @@ button {
   color: var(--fg-subtle);
 }
 
-/* Request list: a data grid like the Network panel's (27px header, 21px rows, odd rows shaded). */
-.request-list {
+.list-pane {
+  display: flex;
   flex: 1;
-  overflow: auto;
+  min-width: 0;
 }
 
-.request-list.compact {
+/* With a request open: a side pane, resized with the splitter (min and max width are set inline). */
+.list-pane.compact {
   flex: none;
   width: min(280px, 35%);
   border-right: 1px solid var(--divider);
+}
+
+/* Like the Network panel's: an invisible 6px strip centered on the list's border, overlapping both panes. */
+.splitter {
+  flex: none;
+  width: 6px;
+  height: auto;
+  margin: 0 -3px;
+  border: none;
+  z-index: 2;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+/* Request list: a data grid like the Network panel's (27px header, 21px rows, odd rows shaded). */
+.request-list {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
 }
 
 .request-list table {

@@ -20,3 +20,23 @@ export function saveViewMode(mode: ViewMode): void {
     // Not remembering the choice is acceptable.
   }
 }
+
+const LIST_WIDTH_KEY = "transit-inspector:list-width";
+
+/** The request list width (px) last set by dragging the splitter; null until the user resizes it. */
+export function loadListWidth(): number | null {
+  try {
+    const stored = Number(localStorage.getItem(LIST_WIDTH_KEY));
+    return Number.isFinite(stored) && stored > 0 ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveListWidth(width: number): void {
+  try {
+    localStorage.setItem(LIST_WIDTH_KEY, String(width));
+  } catch {
+    // Not remembering the width is acceptable.
+  }
+}

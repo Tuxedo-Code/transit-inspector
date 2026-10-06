@@ -13,6 +13,7 @@ DevTools extension for Chrome and Brave (Manifest V3) that adds a "Transit" pane
 ## Things that aren't obvious from the code
 
 - The panel can't read DevTools' CSS variables. The colors in `src/panel.css` are DevTools' own values, measured from Chrome. When matching DevTools, measure (computed styles via Puppeteer) rather than guess.
+- Preact is v11, which no longer appends `px` to numeric inline styles: `style={{ width: 200 }}` is silently dropped, write `"200px"`.
 - Keep exactly one copy of each `@codemirror/*` package (`npm ls @codemirror/state` shows no duplicates); duplicates break CodeMirror at runtime.
 - Commit messages use Conventional Commits (`feat:`, `fix:`, `docs:`, `ci:`...): they drive the version bump and the release changelog (release-please, see spec "Releases"). `feat:`/`fix:` are for user-visible changes only. Releasing means merging the release-please PR: never edit `CHANGELOG.md` or the `package.json` version, tag, or create GitHub Releases by hand. To force a version, put a `Release-As: x.y.z` footer in a commit.
 - In Puppeteer, load the extension with `await browser.installExtension(dist)` after launch, never `launch({ enableExtensions: [dist] })`: Puppeteer doesn't await the latter, and a DevTools window opened before the install finishes never shows the Transit tab (flaky only on slow CI runners).

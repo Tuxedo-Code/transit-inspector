@@ -69,6 +69,28 @@ async function screenshot(name: string): Promise<void> {
   await page.screenshot({ path: resolve(SCREENSHOTS, `${name}.png`) });
 }
 
+const listPaneBox = () =>
+  page.$eval(".list-pane", (pane) => {
+    const { width, right } = pane.getBoundingClientRect();
+    return { width, right };
+  });
+
+async function splitterBox() {
+  const box = await (await page.$(".splitter"))?.boundingBox();
+  if (!box) throw new Error("No splitter");
+  return box;
+}
+
+/** Drags the splitter between the request list and the detail view to `x`. */
+async function dragSplitter(x: number): Promise<void> {
+  const box = await splitterBox();
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.up();
+}
+
 const ednText = () => page.$eval(".pane .cm-content", (content) => (content as HTMLElement).innerText);
 const pressedViewMode = () => page.$eval(".segmented button.selected", (button) => button.textContent);
 
@@ -226,6 +248,39 @@ describe("detail view", () => {
     expect(await page.$(".request-list")).not.toBeNull();
   });
 
+  it("resizes the request list by dragging the splitter on its border, and remembers the width", async () => {
+    await selectRow("42");
+    const before = await listPaneBox();
+    const splitter = await splitterBox();
+    // Centered on the list's border, like the Network panel's.
+    expect(splitter.x + splitter.width / 2).toBe(before.right);
+    await dragSplitter(before.right + 150);
+    expect((await listPaneBox()).width).toBe(before.width + 150);
+    await page.reload();
+    await page.waitForSelector(".request-list tbody tr");
+    await selectRow("42");
+    expect((await listPaneBox()).width).toBe(before.width + 150);
+  });
+
+  it("keeps both panes usable when the splitter is dragged to either edge", async () => {
+    await selectRow("42");
+    await dragSplitter(0);
+    expect((await listPaneBox()).width).toBe(50);
+    await dragSplitter(5000);
+    expect(1300 - (await listPaneBox()).right).toBe(30);
+    await page.click("button[aria-label=Close]");
+    expect(await page.$(".detail")).toBeNull();
+  });
+
+  it("shrinks a wide list to fit a narrower panel, and restores it when there is room again", async () => {
+    await selectRow("42");
+    await dragSplitter(1000);
+    await page.setViewport({ width: 560, height: 650, deviceScaleFactor: 2 });
+    expect((await listPaneBox()).width).toBe(530);
+    await page.setViewport({ width: 1300, height: 650, deviceScaleFactor: 2 });
+    expect((await listPaneBox()).width).toBe(1000);
+  });
+
   it("fits the detail controls in a narrow panel (DevTools docked to the side)", async () => {
     await page.setViewport({ width: 560, height: 650, deviceScaleFactor: 2 });
     await selectRow("42");
@@ -255,6 +310,8 @@ describe("screenshots for review", () => {
       await page.click(".segmented button:nth-child(2)");
       await selectRow("search?q=transit&limit=50");
       await screenshot(`split-${scheme}`);
+      await dragSplitter(600);
+      await screenshot(`wide-list-${scheme}`);
     });
   }
 });

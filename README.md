@@ -7,6 +7,7 @@ A DevTools extension for Chrome and Brave that adds a **Transit** tab next to Ne
 - Requests carrying Transit are clickable; other Fetch/XHR requests are grayed out. Transit is detected by content type, or by sniffing bodies served as `application/json`.
 - Views: EDN, Transit, or both side by side. Fold, select, copy and search (Cmd+F) like in an editor.
 - The footer under the EDN view shows the `get-in` path of the value at the cursor, with a Copy button.
+- Drag the border between the request list and the detail view to resize them, like in the Network panel. The width is remembered.
 - Follows the DevTools light/dark theme. Observe only: it never changes requests.
 
 ![The Transit panel showing a response as EDN next to the raw Transit](docs/screenshot.png)
