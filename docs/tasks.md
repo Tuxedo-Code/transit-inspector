@@ -228,7 +228,7 @@ Notes:
 - `docs/screenshot.png` is `e2e/screenshots/split-light.png` (2x). Refresh it by copying after `npm run test:e2e` when the UI changes.
 - transit-js's Closure loader triggers rolldown `EVAL` warnings; `vite.config.ts` filters only those.
 
-### [~] T16 Automated releases
+### [x] T16 Automated releases
 Depends on: T15
 
 - release-please in CI: pushes to `main` keep a release PR up to date; merging it tags `vX.Y.Z` and publishes a GitHub Release with the changelog and `transit-inspector-<version>.zip` attached.
@@ -240,7 +240,9 @@ Done when: a release PR merged to `main` produces a GitHub Release whose zip loa
 
 Notes:
 - `.release-please-manifest.json` starts at `0.0.0` with `bootstrap-sha` at the last pre-release-please commit. Without `initial-version: "0.1.0"`, release-please treats 0.0.0 as "never released" and the node strategy proposes 1.0.0.
-- Verified locally: unit tests, lint, actionlint, and the zip has `manifest.json` at its root with the version. Still open: the first real release PR, release, and zip check.
+- Verified with v0.1.0: the release zip is identical to a local `npm run build` and passes `e2e/devtools.e2e.ts` when loaded as `dist/`.
+- "Allow GitHub Actions to create and approve pull requests" had to be enabled for the Tuxedo-Code org before the repo setting could be turned on.
+- The first CI run exposed an e2e race: Puppeteer's `launch({ enableExtensions: [path] })` doesn't await the install. `e2e/devtools.ts` now calls `browser.installExtension()` itself.
 
 ## Phase 2 - Later
 
