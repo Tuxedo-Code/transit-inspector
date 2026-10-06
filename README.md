@@ -77,7 +77,7 @@ Then load the `dist/` folder with **Load unpacked** as above. After pulling chan
 
 **How values are shown**
 
-- A float sent as `1.0` shows as `1`: JSON doesn't distinguish them, so the information is gone before decoding.
+- A float sent as `1.0` (or `1.0E7`) shows as `1` (or `10000000`) in the EDN view: the browser's JSON parser drops the difference before decoding. The Transit view shows the number exactly as sent.
 - Integers above 2^53 are exact when sent the Transit way (`"~i..."`). If a server sends them as plain JSON numbers, they may already have lost precision; such values are underlined with a warning.
 - Map entries and set elements are shown in the order they were sent, not in Clojure's own (hash) order.
 - App-specific Transit tags have no handlers here: they show as `#tag value` with a warning underline. URIs show as `#uri "..."`, which standard EDN readers don't know.

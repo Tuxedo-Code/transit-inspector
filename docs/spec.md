@@ -118,7 +118,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
   - vectors, lists, sets, maps (including non-scalar keys);
   - tagged values from app-specific handlers as `#tag value`.
 - Map entries and set elements keep their order on the wire.
-- Known limit: a float sent as `1.0` arrives from JSON as `1` and prints as an integer. Transit itself does not distinguish them in JSON.
+- Known limit: a float sent as `1.0` (or a JVM double like `1.0E7`) prints as an integer. The JSON text does distinguish them, and JVM readers keep the difference, but transit-js parses with the browser's `JSON.parse`, which drops it before decoding. The raw pane shows the number as sent. The fix and why it isn't done: [considered.md](considered.md#faithful-numbers).
 - The printer also produces a **path index**: for each printed node, its text range and its EDN path (e.g. `[:user :orders 0 :id]`). This powers the path footer.
   - Set elements use the element itself as the path step.
   - Elements inside lists use their position, even though `get-in` cannot index lists.
@@ -302,3 +302,6 @@ User-facing limitations are listed in the README ("Limitations"); keep that sect
 - Firefox support (see "Supported browsers" for the known gaps).
 - release-please with its own GitHub App or fine-grained token instead of `GITHUB_TOKEN`, so CI really runs on release PRs (today they show a failed run with zero jobs).
 - Intercept and override (requires `chrome.debugger`; see Non-goals).
+- Watch a path across calls to one endpoint. With the cursor on a value, list that path's value in every captured call to the same endpoint, with changes marked; clicking one opens that request at the same path. Group `/users/42` and `/users/43` as one endpoint by treating numeric, UUID and long hex path segments as wildcards. Re-running a call after a page reload needs "Preserve log".
+
+Ideas that were evaluated and not built, with the reasons and what would change the verdict, are in [considered.md](considered.md). Check it before proposing a feature.

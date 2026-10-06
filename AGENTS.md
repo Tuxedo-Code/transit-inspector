@@ -7,6 +7,7 @@ DevTools extension for Chrome and Brave (Manifest V3) that adds a "Transit" pane
   - Before starting a task, mark it `[~]`.
   - Mark it `[x]` only after its "Done when" is verified.
   - Add a brief note under the task for whoever picks up the next one.
+- [docs/considered.md](docs/considered.md) lists ideas already evaluated and not built, with reasons. Check it before proposing features.
 - If work requires changing a decision, update spec.md in the same change. Don't deviate silently. If users would notice the change, update README "Limitations" too.
 - UI work is checked visually, in light and dark, against the Network panel. Agents can't see the user's Chrome: run `npm run test:e2e` and look at the PNGs in `e2e/screenshots/`. To drive the real panel in DevTools, use the helpers in `e2e/devtools.ts`.
 

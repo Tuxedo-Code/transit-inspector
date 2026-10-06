@@ -339,6 +339,7 @@ From spec "Later". Not to be started until v1 is done:
 - [ ] Wildcard/glob and regex filters
 - [ ] Hide non-Transit rows toggle
 - [ ] Keyboard up/down navigation through requests
+- [ ] Watch a path across calls to one endpoint (see spec "Later"; the reload workflow needs Preserve log)
 - [x] Resizable list/detail split
   - `src/ui/Splitter.tsx`; behavior measured from the Network panel's own splitter, see spec "Layout". Covered by UI tests; the drag (pointer capture across the CodeMirror panes) and persistence were also checked once in real DevTools.- [ ] Vertical scroll sync between panes
 - [ ] Dimmed parent path for colliding names
