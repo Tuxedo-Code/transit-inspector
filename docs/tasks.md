@@ -244,7 +244,7 @@ Notes:
 - "Allow GitHub Actions to create and approve pull requests" had to be enabled for the Tuxedo-Code org before the repo setting could be turned on.
 - The first CI run exposed an e2e race: Puppeteer's `launch({ enableExtensions: [path] })` doesn't await the install. `e2e/devtools.ts` now calls `browser.installExtension()` itself.
 
-### [ ] T17 Privacy guarantees
+### [~] T17 Privacy guarantees
 Depends on: T15
 
 Enforce spec "Privacy" (the decisions, CSP string and reasons are there; don't re-derive them):
@@ -267,6 +267,12 @@ Done when:
 - screenshots in light and dark look unchanged (missing CodeMirror colors, fold gutter or lint underlines are the first sign of a CSP mistake);
 - three negative checks fail as expected and are reverted: `"permissions": ["storage"]` in the manifest fails the unit test, `chrome.devtools.inspectedWindow.eval("1")` in `src/` fails `npm run build`, a `fetch("https://example.com")` on panel start fails e2e;
 - the `npm run package` zip loads unpacked with no "Errors" button and no permissions, decodes on a real Transit app, and the panel's own console (right-click > Inspect) shows no CSP errors.
+
+Notes:
+- Verified: lint, typecheck, unit tests; `npm run test:e2e` 3 runs in a row (28 tests) and the real-DevTools tests in Brave; the three negative checks; the zip's `manifest.json` carries the CSP. A dark-theme screenshot of the real panel under the CSP looks right (CodeMirror's single `<style>` tag mounts, colors and gutter render).
+- Still open: load the zip in your own Chrome on a real Transit app, check the light theme and the extension card's "Errors" button, then mark `[x]`.
+- `Audits.enable` on the panel's CDP session does replay earlier issues: a `fetch` on panel start shows up in `panel.cspIssues`.
+- Not caused by the CSP, found while checking: CodeMirror's search panel (Cmd+F) uses its default light button and text field styles, unreadable in dark. Our editor theme in `src/ui/CodeView.tsx` doesn't style `.cm-button` / `.cm-textfield`.
 
 ### [ ] T18 Dependency and supply-chain security
 Depends on: T15

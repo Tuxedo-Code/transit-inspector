@@ -29,7 +29,7 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
 
 ## Privacy
 
-Binding, like the non-goals. Changing the promise, or loosening any of the enforcement below, is a spec change first. Enforcement is planned in T17.
+Binding, like the non-goals. Changing the promise, or loosening any of the enforcement below, is a spec change first. Enforced since T17.
 
 - **Promise.** The extension makes no network requests of its own: no telemetry, analytics or crash reporting, no remote code, no third-party services, no permissions. Captured traffic lives only in the panel's memory and is gone when DevTools closes. The only stored value is the view mode, in `localStorage` (`src/ui/settings.ts`).
 - **1. CSP.** `manifest.json` sets `content_security_policy.extension_pages` (applies to `devtools.html` and `panel.html`):
@@ -55,7 +55,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 
   The build fails if any JS chunk mentions one of these, so no release zip can contain them. Threat model: it catches accidental use by us or by a dependency, not deliberately hidden code. Network globals (`fetch`, `XMLHttpRequest`) are not on the list: the CSP covers them, and transit-js's dead loader mentions `XMLHttpRequest`.
 - **3. Manifest pin** (unit test). The manifest's top-level keys are an exact allowlist (`manifest_version`, `name`, `description`, `devtools_page`, `content_security_policy`), so adding `permissions`, `host_permissions`, `background`, `content_scripts`, `externally_connectable` or similar fails. The CSP must equal the string above.
-- **4. E2E proof** (real DevTools). The panel raises no CSP issues during normal use. From inside the panel, attempts to reach the test server (fetch, XHR, `sendBeacon`, WebSocket, an image, CSS `url()` and `@import`) never arrive, and each is reported as a CSP issue.
+- **4. E2E proof** (real DevTools, `e2e/devtools.e2e.ts`). The panel raises no CSP issues during normal use. From inside the panel, attempts to reach the test server (fetch, XHR, `sendBeacon`, WebSocket, an image, CSS `url()` and `@import`) never arrive, and each is reported as a CSP issue. Issues are read through the CDP `Audits` domain on the panel's target; `Audits.enable` replays issues raised before it, so violations during panel startup count too (verified: a `fetch` on panel start fails the test).
 
 ## Architecture
 
@@ -275,6 +275,7 @@ Planned in T18.
   - A local test server serves a page making Transit and non-Transit fetch/XHR calls.
   - The test clicks the Transit tab, then drives and inspects the panel through a CDP session on the panel's own target, with `chrome.devtools.*` available.
   - Passed 8 runs in a row when set up. If it becomes flaky, fix it or fall back to a short manual checklist in the README.
+- The real DevTools tests also prove the privacy promise: no CSP violations during normal use, and nothing sent from the panel reaches a server (see "Privacy").
 - Both layers run with `npm run test:e2e` (Vitest, `e2e/*.e2e.ts`). Screenshots go to `e2e/screenshots/` (gitignored) for review.
 - **CI (GitHub Actions, `.github/workflows/ci.yml`):** lint, typecheck, unit and e2e on every push to `main` and every pull request. On Linux, e2e runs under `xvfb-run` because the DevTools tests need a headed browser. Screenshots are uploaded as a workflow artifact. On `main`, a `release` job follows (see "Releases").
 

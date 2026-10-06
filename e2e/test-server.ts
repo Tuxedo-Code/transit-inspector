@@ -24,11 +24,15 @@ window.spa = () => history.pushState({}, "", "/spa-route");
 
 export interface TestServer {
   url: string;
+  /** Path of every request received, in arrival order. */
+  requests: string[];
   close: () => Promise<void>;
 }
 
 export async function startTestServer(): Promise<TestServer> {
+  const requests: string[] = [];
   const server = http.createServer((req, res) => {
+    requests.push(req.url ?? "");
     const send = (type: string, body: string) => {
       res.writeHead(200, { "content-type": type });
       res.end(body);
@@ -61,6 +65,7 @@ export async function startTestServer(): Promise<TestServer> {
   const { port } = server.address() as AddressInfo;
   return {
     url: `http://127.0.0.1:${port}/`,
+    requests,
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };
 }

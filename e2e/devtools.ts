@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import puppeteer, { type Browser, type CDPSession, type Page } from "puppeteer";
+import puppeteer, { type Browser, type CDPSession, type Page, type Protocol } from "puppeteer";
 
 const DIST = resolve(import.meta.dirname, "..", "dist");
 
@@ -53,7 +53,7 @@ export async function openPageWithTransitPanel(browser: Browser, url: string): P
   await page.goto(url);
   await waitForTransitTab(devtools, true);
   const target = await browser.waitForTarget((t) => t.url().endsWith("/panel.html"), { timeout: 10_000 });
-  return { page, panel: new Panel(await target.createCDPSession()) };
+  return { page, panel: await Panel.create(await target.createCDPSession()) };
 }
 
 async function waitForTransitTab(devtools: Page, click: boolean): Promise<void> {
@@ -89,7 +89,21 @@ function findTransitTab(devtools: Page, click: boolean): Promise<boolean> {
 
 /** Runs code inside the real Transit panel, where `chrome.devtools.*` is available. */
 export class Panel {
-  constructor(private readonly session: CDPSession) {}
+  /** Every CSP violation in the panel since it loaded (see docs/spec.md "Privacy"). */
+  readonly cspIssues: Protocol.Audits.ContentSecurityPolicyIssueDetails[] = [];
+
+  private constructor(private readonly session: CDPSession) {}
+
+  static async create(session: CDPSession): Promise<Panel> {
+    const panel = new Panel(session);
+    session.on("Audits.issueAdded", ({ issue }) => {
+      const details = issue.details.contentSecurityPolicyIssueDetails;
+      if (details) panel.cspIssues.push(details);
+    });
+    // Replays the issues raised before this, so violations while the panel started up count too.
+    await session.send("Audits.enable");
+    return panel;
+  }
 
   async evaluate<T>(expression: string): Promise<T> {
     const result = await this.session.send("Runtime.evaluate", {

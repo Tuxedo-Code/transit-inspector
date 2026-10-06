@@ -12,6 +12,7 @@ DevTools extension for Chrome and Brave (Manifest V3) that adds a "Transit" pane
 
 ## Things that aren't obvious from the code
 
+- Privacy is binding (spec "Privacy"): the manifest CSP blocks all network access, `build/privacy.ts` fails the build on APIs that could leak data some other way, and a unit test pins the manifest. Never loosen any of them to make something work; change the spec first.
 - The panel can't read DevTools' CSS variables. The colors in `src/panel.css` are DevTools' own values, measured from Chrome. When matching DevTools, measure (computed styles via Puppeteer) rather than guess.
 - Preact is v11, which no longer appends `px` to numeric inline styles: `style={{ width: 200 }}` is silently dropped, write `"200px"`.
 - Keep exactly one copy of each `@codemirror/*` package (`npm ls @codemirror/state` shows no duplicates); duplicates break CodeMirror at runtime.
