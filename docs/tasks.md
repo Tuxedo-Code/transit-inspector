@@ -272,7 +272,7 @@ Notes:
 - Verified: lint, typecheck, unit tests; `npm run test:e2e` 3 runs in a row (28 tests) and the real-DevTools tests in Brave; the three negative checks; the zip's `manifest.json` carries the CSP. A dark-theme screenshot of the real panel under the CSP looks right (CodeMirror's single `<style>` tag mounts, colors and gutter render).
 - Still open: load the zip in your own Chrome on a real Transit app, check the light theme and the extension card's "Errors" button, then mark `[x]`.
 - `Audits.enable` on the panel's CDP session does replay earlier issues: a `fetch` on panel start shows up in `panel.cspIssues`.
-- Not caused by the CSP, found while checking: CodeMirror's search panel (Cmd+F) uses its default light button and text field styles, unreadable in dark. Our editor theme in `src/ui/CodeView.tsx` doesn't style `.cm-button` / `.cm-textfield`.
+- Not caused by the CSP, found while checking: CodeMirror's search panel (Cmd+F) used its light-only default field and button styles, unreadable in dark. Fixed in `src/ui/CodeView.tsx` (filter box and pill buttons from `panel.css`); `e2e/ui.e2e.ts` now saves `search-light/dark.png`.
 
 ### [ ] T18 Dependency and supply-chain security
 Depends on: T15

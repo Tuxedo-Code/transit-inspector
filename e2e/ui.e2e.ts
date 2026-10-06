@@ -307,6 +307,13 @@ describe("screenshots for review", () => {
       await selectRow("42");
       await clickInEdn(":order/status");
       await screenshot(`edn-${scheme}`);
+      const mod = process.platform === "darwin" ? "Meta" : "Control";
+      await page.keyboard.down(mod);
+      await page.keyboard.press("f");
+      await page.keyboard.up(mod);
+      await page.keyboard.type("order");
+      await screenshot(`search-${scheme}`);
+      await page.keyboard.press("Escape");
       await page.click(".segmented button:nth-child(2)");
       await selectRow("search?q=transit&limit=50");
       await screenshot(`split-${scheme}`);
