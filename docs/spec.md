@@ -195,7 +195,8 @@ Self-signed `.crx` files are not installable on Mac/Windows Chrome without enter
 - Each push with releasable commits opens or updates a "release x.y.z" PR that bumps `package.json`/`package-lock.json` and updates `CHANGELOG.md`. Neither is edited by hand.
 - Merging that PR tags `vX.Y.Z`, creates a GitHub Release whose notes are that version's changelog, and attaches `transit-inspector-<version>.zip` (built by `npm run package` in the same job).
 - PRs and tags created with `GITHUB_TOKEN` don't trigger workflows, so CI doesn't run on the release PR itself; the merge commit runs `check` before anything is released.
-- Repo setting required: Actions > General > "Allow GitHub Actions to create and approve pull requests".
+- To force a specific next version, add a `Release-As: x.y.z` footer to a commit message. The first release used `initial-version` in `release-please-config.json`: a manifest at `0.0.0` counts as "never released", and the node strategy would otherwise start at 1.0.0.
+- Settings required: "Allow GitHub Actions to create and approve pull requests" under Actions > General, first in the Tuxedo-Code organization settings (it overrides the repo), then in the repo. Without it, the `release` job can't open the release PR.
 - **Web Store readiness:** the release zip has `manifest.json` at its root and a version Chrome accepts, so it can be uploaded to the Chrome Web Store as is. Publishing still needs icons and a store listing (see "Later"). The first upload is done by hand in the developer dashboard; a CI upload job can follow.
 
 ## Testing
@@ -216,6 +217,7 @@ Self-signed `.crx` files are not installable on Mac/Windows Chrome without enter
   This is the main UI test layer. It is reliable because no DevTools window is involved.
 - **Real DevTools tests, automated (feasible; decided in T03):**
   - Puppeteer launches a visible Chrome for Testing (DevTools does not open headless) with `dist/` loaded and DevTools docked to the bottom. Docked to the side, DevTools is too narrow and hides the Transit tab in its "»" overflow.
+  - The extension is installed with `browser.installExtension()` and awaited before any DevTools window opens. Puppeteer's `launch({ enableExtensions: [path] })` doesn't await the install, which made CI flaky.
   - A local test server serves a page making Transit and non-Transit fetch/XHR calls.
   - The test clicks the Transit tab, then drives and inspects the panel through a CDP session on the panel's own target, with `chrome.devtools.*` available.
   - Passed 8 runs in a row when set up. If it becomes flaky, fix it or fall back to a short manual checklist in the README.
