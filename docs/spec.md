@@ -24,7 +24,7 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
 - No WebSocket traffic.
 - No `application/transit+msgpack` decoding (shown as unsupported).
 - No capture while DevTools is closed.
-- No Chrome Web Store publishing, no `.crx`.
+- No `.crx`. Chrome Web Store publishing isn't set up yet, but release zips are valid store uploads (see "Releases").
 - No synced collapse/fold state between the EDN and Transit panes.
 
 ## Architecture
@@ -160,7 +160,7 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
 - npm with a committed `package-lock.json`.
 - TypeScript (strict) with `@types/chrome`.
 - Vite builds two HTML entry points (`devtools.html`, `panel.html`, at the project root) into `dist/`. No extension-specific Vite plugin.
-- `package.json` holds the only version number. The source `manifest.json` (project root) has no version; a small build plugin (`build/manifest.ts`) emits it into `dist/` with the version filled in.
+- `package.json` holds the only version number. The source `manifest.json` (project root) has no version; a small build plugin (`build/manifest.ts`) emits it into `dist/` with the version filled in. The build fails if the version isn't one Chrome accepts (1-4 integers, no `-beta` suffixes).
 - No custom icons in v1; Chrome shows a default.
 - Preact for UI.
 - CodeMirror 6 for both panes: `@codemirror/lang-json`, `@nextjournal/lang-clojure` for EDN, fold gutter, search, read-only, lint diagnostics for problem marks. Verified to run under the extension CSP. CodeMirror's default colors are unreadable on DevTools dark, so the panes need our own theme.
@@ -182,12 +182,21 @@ npm scripts:
 
 ## Install (no store)
 
-1. Run `npm run build`.
-2. Open `chrome://extensions`, turn on Developer mode, click "Load unpacked" and choose `dist/`.
-3. To update, rebuild and click the extension's reload button.
-4. To share, send the zip from `npm run package`; the recipient unzips it and loads it unpacked.
+1. Download `transit-inspector-<version>.zip` from the latest GitHub Release and unzip it, or build from source with `npm run build` (output in `dist/`).
+2. Open `chrome://extensions`, turn on Developer mode, click "Load unpacked" and choose the unzipped folder (or `dist/`).
+3. To update, replace the folder's contents (or rebuild) and click the extension's reload button.
 
 Self-signed `.crx` files are not installable on Mac/Windows Chrome without enterprise policy, so they are not used.
+
+## Releases
+
+- [release-please](https://github.com/googleapis/release-please) runs in CI (`release` job in `.github/workflows/ci.yml`), only on pushes to `main` and only after the `check` job passed.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org). `feat:` bumps the minor version, `fix:` and `perf:` the patch version; while below 1.0, breaking changes (`feat!:`) bump the minor. Other types (`docs:`, `ci:`, `chore:`, ...) don't trigger a release and don't show in the changelog.
+- Each push with releasable commits opens or updates a "release x.y.z" PR that bumps `package.json`/`package-lock.json` and updates `CHANGELOG.md`. Neither is edited by hand.
+- Merging that PR tags `vX.Y.Z`, creates a GitHub Release whose notes are that version's changelog, and attaches `transit-inspector-<version>.zip` (built by `npm run package` in the same job).
+- PRs and tags created with `GITHUB_TOKEN` don't trigger workflows, so CI doesn't run on the release PR itself; the merge commit runs `check` before anything is released.
+- Repo setting required: Actions > General > "Allow GitHub Actions to create and approve pull requests".
+- **Web Store readiness:** the release zip has `manifest.json` at its root and a version Chrome accepts, so it can be uploaded to the Chrome Web Store as is. Publishing still needs icons and a store listing (see "Later"). The first upload is done by hand in the developer dashboard; a CI upload job can follow.
 
 ## Testing
 
@@ -211,7 +220,7 @@ Self-signed `.crx` files are not installable on Mac/Windows Chrome without enter
   - The test clicks the Transit tab, then drives and inspects the panel through a CDP session on the panel's own target, with `chrome.devtools.*` available.
   - Passed 8 runs in a row when set up. If it becomes flaky, fix it or fall back to a short manual checklist in the README.
 - Both layers run with `npm run test:e2e` (Vitest, `e2e/*.e2e.ts`). Screenshots go to `e2e/screenshots/` (gitignored) for review.
-- **CI (GitHub Actions, `.github/workflows/ci.yml`):** lint, typecheck, unit and e2e on every push to `main` and every pull request. On Linux, e2e runs under `xvfb-run` because the DevTools tests need a headed browser. Screenshots are uploaded as a workflow artifact.
+- **CI (GitHub Actions, `.github/workflows/ci.yml`):** lint, typecheck, unit and e2e on every push to `main` and every pull request. On Linux, e2e runs under `xvfb-run` because the DevTools tests need a headed browser. Screenshots are uploaded as a workflow artifact. On `main`, a `release` job follows (see "Releases").
 
 ## Known risks
 
@@ -232,5 +241,6 @@ User-facing limitations are listed in the README ("Limitations"); keep that sect
 - Dimmed parent path next to the Name when names collide.
 - Web Worker decoding.
 - Custom extension icons.
+- Chrome Web Store listing (needs icons; see "Releases").
 - Firefox support (see "Supported browsers" for the known gaps).
 - Intercept and override (requires `chrome.debugger`; see Non-goals).

@@ -13,6 +13,17 @@ A DevTools extension for Chrome and Brave that adds a **Transit** tab next to Ne
 
 ## Install as an extension
 
+1. Download `transit-inspector-<version>.zip` from the [latest release](https://github.com/Tuxedo-Code/transit-inspector/releases/latest) and unzip it into a folder you'll keep.
+2. Open `chrome://extensions` (in Brave: `brave://extensions`) and turn on **Developer mode** (top right).
+3. Click **Load unpacked** and select the unzipped folder.
+4. Open DevTools on any page; the **Transit** tab is next to Network (or under `»` if DevTools is narrow).
+
+To update: replace the folder's contents with the newer release, click the reload icon on the extension's card in the extensions page, then close and reopen DevTools.
+
+Other Chromium browsers (Edge, Vivaldi, Opera, Arc) will likely work the same way but aren't tested. Firefox and Safari aren't supported.
+
+### Build from source
+
 Requires [mise](https://mise.jdx.dev) (or Node 24).
 
 ```sh
@@ -23,15 +34,7 @@ npm ci
 npm run build
 ```
 
-1. Open `chrome://extensions` (in Brave: `brave://extensions`) and turn on **Developer mode** (top right).
-2. Click **Load unpacked** and select the `dist/` folder.
-3. Open DevTools on any page; the **Transit** tab is next to Network (or under `»` if DevTools is narrow).
-
-To update after pulling changes: run `npm run build` again, click the reload icon on the extension's card in the extensions page, then close and reopen DevTools.
-
-Other Chromium browsers (Edge, Vivaldi, Opera, Arc) will likely work the same way but aren't tested. Firefox and Safari aren't supported.
-
-To share without the Chrome Web Store: `npm run package` creates `transit-inspector-<version>.zip`. The recipient unzips it and loads the folder with **Load unpacked**.
+Then load the `dist/` folder with **Load unpacked** as above. After pulling changes, run `npm run build` again and reload the extension. `npm run package` creates the same `transit-inspector-<version>.zip` that releases ship.
 
 ## Limitations
 
@@ -73,6 +76,8 @@ Design and decisions: [docs/spec.md](docs/spec.md). Work plan: [docs/tasks.md](d
 ## Contributing
 
 Issues and pull requests are welcome. Please read [docs/spec.md](docs/spec.md) first: its non-goals are binding, so features that change or replay requests are out of scope. Before opening a pull request, run `npm run lint`, `npm test` and `npm run test:e2e`; CI runs the same checks.
+
+Commit messages (or squash-merge titles) follow [Conventional Commits](https://www.conventionalcommits.org): `feat:` and `fix:` end up in the changelog and trigger a release. Releases are automated with release-please: pushes to `main` keep a release PR open, and merging it publishes a GitHub Release with the changelog and the zip. See "Releases" in [docs/spec.md](docs/spec.md).
 
 ## License
 

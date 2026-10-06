@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-24.04
@@ -31,3 +34,34 @@ jobs:
           name: e2e-screenshots
           path: e2e/screenshots/
           if-no-files-found: ignore
+
+  # Keeps the release PR up to date. When that PR is merged, tags the release and attaches the zip.
+  # Build and upload live in this job because tags pushed with GITHUB_TOKEN don't trigger other workflows.
+  release:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      - if: steps.release.outputs.release_created
+        uses: actions/checkout@v7
+      - if: steps.release.outputs.release_created
+        uses: jdx/mise-action@v5
+      - if: steps.release.outputs.release_created
+        run: npm ci && npm run package
+      - if: steps.release.outputs.release_created
+        run: gh release upload "$TAG" "transit-inspector-$VERSION.zip" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+          VERSION: ${{ steps.release.outputs.version }}

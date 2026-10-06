@@ -228,6 +228,20 @@ Notes:
 - `docs/screenshot.png` is `e2e/screenshots/split-light.png` (2x). Refresh it by copying after `npm run test:e2e` when the UI changes.
 - transit-js's Closure loader triggers rolldown `EVAL` warnings; `vite.config.ts` filters only those.
 
+### [~] T16 Automated releases
+Depends on: T15
+
+- release-please in CI: pushes to `main` keep a release PR up to date; merging it tags `vX.Y.Z` and publishes a GitHub Release with the changelog and `transit-inspector-<version>.zip` attached.
+- The release only runs after the `check` job passed on that commit.
+- The build rejects versions Chrome (and the Web Store) won't accept.
+- README install from Releases; spec "Releases" section.
+
+Done when: a release PR merged to `main` produces a GitHub Release whose zip loads unpacked and decodes in real DevTools.
+
+Notes:
+- `.release-please-manifest.json` starts at `0.0.0` with `bootstrap-sha` at the last pre-release-please commit, so the first `feat:` commit proposes 0.1.0 (the version package.json already had).
+- Verified locally: unit tests, lint, actionlint, and the zip has `manifest.json` at its root with the version. Still open: the first real release PR, release, and zip check.
+
 ## Phase 2 - Later
 
 From spec "Later". Not to be started until v1 is done:
@@ -242,6 +256,7 @@ From spec "Later". Not to be started until v1 is done:
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)
 - [ ] Custom extension icons
+- [ ] Chrome Web Store listing: icons (128px), listing assets, first upload by hand from a release zip, then optionally a CI job that uploads each release zip through the Web Store API
 - [ ] Firefox support ("maybe"; see spec "Supported browsers"):
   - Check what Firefox's `devtools.network` HAR entries contain. If `_resourceType` is missing, find another way to tell Fetch/XHR apart, or list every request that carries Transit.
   - Check the panel, CodeMirror and the clipboard fallback in Firefox DevTools, in both themes.
