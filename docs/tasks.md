@@ -244,7 +244,7 @@ Notes:
 - "Allow GitHub Actions to create and approve pull requests" had to be enabled for the Tuxedo-Code org before the repo setting could be turned on.
 - The first CI run exposed an e2e race: Puppeteer's `launch({ enableExtensions: [path] })` doesn't await the install. `e2e/devtools.ts` now calls `browser.installExtension()` itself.
 
-### [~] T17 Privacy guarantees
+### [x] T17 Privacy guarantees
 Depends on: T15
 
 Enforce spec "Privacy" (the decisions, CSP string and reasons are there; don't re-derive them):
@@ -270,7 +270,11 @@ Done when:
 
 Notes:
 - Verified: lint, typecheck, unit tests; `npm run test:e2e` 3 runs in a row (28 tests) and the real-DevTools tests in Brave; the three negative checks; the zip's `manifest.json` carries the CSP. A dark-theme screenshot of the real panel under the CSP looks right (CodeMirror's single `<style>` tag mounts, colors and gutter render).
-- Still open: load the zip in your own Chrome on a real Transit app, check the light theme and the extension card's "Errors" button, then mark `[x]`.
+- Released in v0.3.0 (CSP) and v0.3.1. The v0.3.1 release zip was checked unpacked in Chrome for Testing:
+  - `chrome.developerPrivate.getExtensionInfo` (what the extension card shows) reports no runtime errors, manifest errors or install warnings;
+  - with `samples/basic.har`'s traffic replayed by a local server (the stand-in for a real Transit app), every selectable request opens, with zero CSP issues;
+  - light and dark screenshots of the real panel look right.
+- Chrome still shows "Read and change all your data on all websites": every extension with a `devtools_page` gets it, regardless of the CSP or manifest. Recorded in spec "Privacy"; T19 has to explain it in the README.
 - `Audits.enable` on the panel's CDP session does replay earlier issues: a `fetch` on panel start shows up in `panel.cspIssues`.
 - Not caused by the CSP, found while checking: CodeMirror's search panel (Cmd+F) used its light-only default field and button styles, unreadable in dark. Fixed in `src/ui/CodeView.tsx` (filter box and pill buttons from `panel.css`); `e2e/ui.e2e.ts` now saves `search-light/dark.png`.
 
@@ -301,7 +305,8 @@ Done when:
 Depends on: T17, T18
 
 - A short "Privacy and security" section in `README.md`, right after the feature bullets. Plain language, about 6-8 bullets, each claim true of what T17 and T18 shipped:
-  - no network requests, no tracking, no third parties, no permissions; captured traffic stays in DevTools memory; only the view mode is saved;
+  - no network requests, no tracking, no third parties, no permissions requested; captured traffic stays in DevTools memory; only the view mode is saved;
+  - why Chrome still shows "Read and change all your data on all websites" (every DevTools extension gets it; see spec "Privacy", "Chrome's install warning"), and that the build refuses the API behind it;
   - the CSP blocks all connections, and how to check it yourself (`manifest.json` in the zip, `connect-src 'none'`);
   - the build refuses APIs that could leak data some other way;
   - CI proves from inside DevTools that nothing reaches a server;
