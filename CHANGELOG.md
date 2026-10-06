@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.3.0...v0.3.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* make the editor's search bar readable in dark theme ([51ef3d6](https://github.com/Tuxedo-Code/transit-inspector/commit/51ef3d6fcd55f96b2a97118345f5bfc0dc3c3404))
+
 ## [0.3.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.2.0...v0.3.0) (2026-10-06)
 
 
