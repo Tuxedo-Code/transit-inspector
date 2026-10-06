@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.3.1...v0.3.2) (2026-10-06)
+
+
+### Documentation
+
+* plan a dedicated token for release-please ([5d55d8e](https://github.com/Tuxedo-Code/transit-inspector/commit/5d55d8e07ebc1bc47ee5d47c03db1fa8b02f6f3b))
+
 ## [0.3.1](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.3.0...v0.3.1) (2026-10-06)
 
 
