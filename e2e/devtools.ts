@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import puppeteer, { type Browser, type CDPSession, type Page, type Protocol } from "puppeteer";
 
 const DIST = resolve(import.meta.dirname, "..", "dist");
+const SCREENSHOTS = resolve(import.meta.dirname, "screenshots");
 
 /**
  * Launches a visible Chrome for Testing with the built extension (DevTools does not open in headless mode).
@@ -49,19 +50,39 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function openPageWithTransitPanel(browser: Browser, url: string): Promise<{ page: Page; panel: Panel }> {
   const page = await browser.newPage();
   const devtools = await page.openDevTools();
-  await waitForTransitTab(devtools, false);
+  await waitForTransitTab(browser, devtools, false);
   await page.goto(url);
-  await waitForTransitTab(devtools, true);
+  await waitForTransitTab(browser, devtools, true);
   const target = await browser.waitForTarget((t) => t.url().endsWith("/panel.html"), { timeout: 10_000 });
   return { page, panel: await Panel.create(await target.createCDPSession()) };
 }
 
-async function waitForTransitTab(devtools: Page, click: boolean): Promise<void> {
+async function waitForTransitTab(browser: Browser, devtools: Page, click: boolean): Promise<void> {
   for (let attempt = 0; attempt < 80; attempt++) {
     if (await findTransitTab(devtools, click)) return;
     await sleep(250);
   }
-  throw new Error("Transit tab not found in DevTools");
+  // Say why, so a flaky failure on CI can be diagnosed from its log and screenshot alone.
+  mkdirSync(SCREENSHOTS, { recursive: true });
+  await devtools.screenshot({ path: join(SCREENSHOTS, "devtools-without-transit-tab.png") }).catch(() => {});
+  const state = await devtools.evaluate(() => {
+    const tabs: string[] = [];
+    const collect = (root: Document | ShadowRoot) => {
+      for (const el of root.querySelectorAll('[role="tab"]')) tabs.push(el.textContent?.trim() ?? "");
+      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) collect(el.shadowRoot);
+    };
+    collect(document);
+    return { tabs, width: innerWidth, readyState: document.readyState };
+  });
+  const extensionPages = browser
+    .targets()
+    .map((target) => target.url())
+    .filter((url) => url.startsWith("chrome-extension://"));
+  throw new Error(
+    `Transit tab not found in DevTools. DevTools tabs: ${JSON.stringify(state.tabs)}, width ${state.width}px, ` +
+      `document ${state.readyState}; extension pages: ${JSON.stringify(extensionPages)}. ` +
+      "Screenshot: e2e/screenshots/devtools-without-transit-tab.png",
+  );
 }
 
 /** Whether the DevTools window has the Transit tab; clicks it if `click` is set. */
