@@ -22,12 +22,15 @@ export async function launchWithExtension(): Promise<{ browser: Browser; close: 
     headless: false,
     devtools: true,
     pipe: true,
-    enableExtensions: [DIST],
+    enableExtensions: true,
     defaultViewport: null,
     userDataDir: profile,
     args: ["--window-size=1600,1000"],
     ...(process.env.E2E_BROWSER ? { executablePath: process.env.E2E_BROWSER } : {}),
   });
+  // Not `enableExtensions: [DIST]`: Puppeteer 25 doesn't await that install (`Promise.all([paths.map(...)])`),
+  // so on slow machines DevTools could open before the extension existed and never show the Transit tab.
+  await browser.installExtension(DIST);
   const close = async () => {
     await browser.close();
     rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
