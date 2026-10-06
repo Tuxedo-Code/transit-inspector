@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <title>Transit Inspector</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6650e8"/>
+      <stop offset="1" stop-color="#4232c4"/>
+    </linearGradient>
+  </defs>
+  <rect width="16" height="16" rx="3.6" fill="url(#bg)"/>
+  <g fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.2 3.4Q4.6 3.4 4.6 5L4.6 6.72Q4.6 8 2.9 8Q4.6 8 4.6 9.28L4.6 11Q4.6 12.6 6.2 12.6"/>
+    <path d="M9.8 3.4Q11.4 3.4 11.4 5L11.4 6.72Q11.4 8 13.1 8Q11.4 8 11.4 9.28L11.4 11Q11.4 12.6 9.8 12.6"/>
+  </g>
+  <circle cx="8" cy="6.4" r="0.9" fill="#fff"/>
+  <circle cx="8" cy="9.6" r="0.9" fill="#fff"/>
+</svg>

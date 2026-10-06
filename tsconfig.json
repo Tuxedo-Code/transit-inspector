@@ -18,5 +18,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "build", "e2e", "samples", "vite.config.ts", "vitest.e2e.config.ts"]
+  "include": ["src", "build", "e2e", "icons", "samples", "store", "vite.config.ts", "vitest.e2e.config.ts"]
 }

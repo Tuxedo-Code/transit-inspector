@@ -11,13 +11,16 @@ const SCREENSHOTS = resolve(import.meta.dirname, "screenshots");
  * Set E2E_BROWSER to another Chromium browser's executable (e.g. Brave) to run the same tests there.
  * Uses a throwaway profile with DevTools docked to the bottom: docked to the side, DevTools is too narrow
  * and moves the Transit tab into the hidden "»" overflow, where it can't be clicked.
+ * `dock: "undocked"` opens DevTools in a window of its own instead (store/ sizes it for screenshots).
  */
-export async function launchWithExtension(): Promise<{ browser: Browser; close: () => Promise<void> }> {
+export async function launchWithExtension(
+  options: { dock?: "bottom" | "undocked"; args?: string[] } = {},
+): Promise<{ browser: Browser; close: () => Promise<void> }> {
   const profile = mkdtempSync(join(tmpdir(), "transit-inspector-e2e-"));
   mkdirSync(join(profile, "Default"));
   writeFileSync(
     join(profile, "Default", "Preferences"),
-    JSON.stringify({ devtools: { preferences: { currentDockState: JSON.stringify("bottom") } } }),
+    JSON.stringify({ devtools: { preferences: { currentDockState: JSON.stringify(options.dock ?? "bottom") } } }),
   );
   const browser = await puppeteer.launch({
     headless: false,
@@ -27,7 +30,7 @@ export async function launchWithExtension(): Promise<{ browser: Browser; close: 
     enableExtensions: true,
     defaultViewport: null,
     userDataDir: profile,
-    args: ["--window-size=1600,1000"],
+    args: ["--window-size=1600,1000", ...(options.args ?? [])],
     ...(process.env.E2E_BROWSER ? { executablePath: process.env.E2E_BROWSER } : {}),
   });
   // Not `enableExtensions: [DIST]`: Puppeteer 25 doesn't await that install (`Promise.all([paths.map(...)])`),
@@ -154,8 +157,12 @@ function findTransitTab(devtools: Page, click: boolean): Promise<boolean> {
 export class Panel {
   /** Every CSP violation in the panel since it loaded (see docs/spec.md "Privacy"). */
   readonly cspIssues: Protocol.Audits.ContentSecurityPolicyIssueDetails[] = [];
+  // A plain field, not a parameter property, so Node can run this file without a build (see store/).
+  private readonly session: CDPSession;
 
-  private constructor(private readonly session: CDPSession) {}
+  private constructor(session: CDPSession) {
+    this.session = session;
+  }
 
   static async create(session: CDPSession): Promise<Panel> {
     const panel = new Panel(session);

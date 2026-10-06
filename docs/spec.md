@@ -24,7 +24,7 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
 - No WebSocket traffic.
 - No `application/transit+msgpack` decoding (shown as unsupported).
 - No capture while DevTools is closed.
-- No `.crx`. Chrome Web Store publishing isn't set up yet, but release zips are valid store uploads (see "Releases").
+- No self-signed `.crx`. Users install from the release zip, or from the Chrome Web Store once it is listed (see "Releases").
 - No synced collapse/fold state between the EDN and Transit panes.
 
 ## Privacy
@@ -55,7 +55,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
   - DNS prefetch and preconnect leak a hostname.
 
   The build fails if any JS chunk mentions one of these, so no release zip can contain them. Threat model: it catches accidental use by us or by a dependency, not deliberately hidden code. Network globals (`fetch`, `XMLHttpRequest`) are not on the list: the CSP covers them, and transit-js's dead loader mentions `XMLHttpRequest`.
-- **3. Manifest pin** (unit test). The manifest's top-level keys are an exact allowlist (`manifest_version`, `name`, `description`, `devtools_page`, `content_security_policy`), so adding `permissions`, `host_permissions`, `background`, `content_scripts`, `externally_connectable` or similar fails. The CSP must equal the string above.
+- **3. Manifest pin** (unit test). The manifest's top-level keys are an exact allowlist (`manifest_version`, `name`, `description`, `icons`, `devtools_page`, `content_security_policy`), so adding `permissions`, `host_permissions`, `background`, `content_scripts`, `externally_connectable` or similar fails. The CSP must equal the string above.
 - **4. E2E proof** (real DevTools, `e2e/devtools.e2e.ts`). The panel raises no CSP issues during normal use. From inside the panel, attempts to reach the test server (fetch, XHR, `sendBeacon`, WebSocket, an image, CSS `url()` and `@import`) never arrive, and each is reported as a CSP issue. Issues are read through the CDP `Audits` domain on the panel's target; `Audits.enable` replays issues raised before it, so violations during panel startup count too (verified: a `fetch` on panel start fails the test).
 
 ## Architecture
@@ -205,8 +205,8 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - npm with a committed `package-lock.json`.
 - TypeScript (strict) with `@types/chrome`.
 - Vite builds two HTML entry points (`devtools.html`, `panel.html`, at the project root) into `dist/`. No extension-specific Vite plugin.
-- `package.json` holds the only version number. The source `manifest.json` (project root) has no version; a small build plugin (`build/manifest.ts`) emits it into `dist/` with the version filled in. The build fails if the version isn't one Chrome accepts (1-4 integers, no `-beta` suffixes).
-- No custom icons in v1; Chrome shows a default.
+- `package.json` holds the only version number. The source `manifest.json` (project root) has no version; a small build plugin (`build/manifest.ts`) emits it into `dist/` with the version filled in, and copies the icons it lists. The build fails if the version isn't one Chrome accepts (1-4 integers, no `-beta` suffixes).
+- **Icons:** EDN map braces around a keyword colon, `{:}`, white on indigo. Sources are `icons/icon.svg` and `icons/icon-16.svg` (braces only: the colon smears at 16px). `node icons/make-icons.ts` renders the 16, 32, 48 and 128px PNGs, which are committed; the 128px one has 16px of transparent padding around a 96px icon, as the Web Store asks. A unit test checks each PNG's size against the manifest.
 - Preact for UI.
 - CodeMirror 6 for both panes: `@codemirror/lang-json`, `@nextjournal/lang-clojure` for EDN, fold gutter, search, read-only, lint diagnostics for problem marks. Verified to run under the extension CSP. CodeMirror's default colors are unreadable on DevTools dark, so the panes need our own theme.
 - `transit-js` for decoding.
@@ -243,7 +243,10 @@ Self-signed `.crx` files are not installable on Mac/Windows Chrome without enter
 - Dependency bumps of shipped code are `fix(deps):` commits, so they go through the same release PR (see "Dependencies and supply chain").
 - To force a specific next version, add a `Release-As: x.y.z` footer to a commit message. The first release used `initial-version` in `release-please-config.json`: a manifest at `0.0.0` counts as "never released", and the node strategy would otherwise start at 1.0.0.
 - Settings required: "Allow GitHub Actions to create and approve pull requests" under Actions > General, first in the Tuxedo-Code organization settings (it overrides the repo), then in the repo. Without it, the `release` job can't open the release PR.
-- **Web Store readiness:** the release zip has `manifest.json` at its root and a version Chrome accepts, so it can be uploaded to the Chrome Web Store as is. Publishing still needs icons and a store listing (see "Later"). The first upload is done by hand in the developer dashboard; a CI upload job can follow.
+- **Chrome Web Store:** the release zip has `manifest.json` at its root, a version Chrome accepts and the icons, so it is uploaded to the store as is.
+  - `store/listing.md` holds every listing field and the privacy-practices answers; its claims must stay true, like the README's (see "Privacy").
+  - The screenshots and the promo tile in `store/` come from `node store/make-images.ts`: it replays `samples/basic.har` from a local server that Chrome reaches as `app.example.com`, and captures the real panel in an undocked DevTools window sized to the store's 1280x800. Run it on macOS after UI changes, since it renders with the system fonts.
+  - Uploads are by hand in the developer dashboard for now (see "Later").
 
 ## Dependencies and supply chain
 
@@ -306,8 +309,7 @@ User-facing limitations are listed in the README ("Limitations"); keep that sect
 - Vertical scroll sync between EDN and Transit panes.
 - Dimmed parent path next to the Name when names collide.
 - Web Worker decoding.
-- Custom extension icons.
-- Chrome Web Store listing (needs icons; see "Releases").
+- Upload each release zip to the Chrome Web Store from CI (Chrome Web Store API), instead of by hand (see "Releases").
 - Firefox support (see "Supported browsers" for the known gaps).
 - release-please with its own GitHub App or fine-grained token instead of `GITHUB_TOKEN`, so CI really runs on release PRs (today they show a failed run with zero jobs).
 - Intercept and override (requires `chrome.debugger`; see Non-goals).

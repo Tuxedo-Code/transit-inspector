@@ -355,12 +355,18 @@ From spec "Later". Not to be started until v1 is done:
 - [ ] Vertical scroll sync between panes
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)
-- [ ] Custom extension icons
+- [x] Custom extension icons
+  - `{:}` on indigo; sources and sizes in spec "Stack and tooling" ("Icons"). Checked at real size on `chrome://extensions` and on light and dark backgrounds.
+  - `e2e/devtools.ts` no longer uses a TypeScript parameter property, so plain `node` can import it (`store/make-images.ts` does).
 - [ ] release-please with its own token:
   - Why: PRs opened with `GITHUB_TOKEN` trigger no workflows, so every release PR shows a failed CI run with zero jobs, and CI never checks the release PR itself.
   - How: a GitHub App (preferred: scoped, short-lived tokens via `actions/create-github-app-token`) or a fine-grained PAT with contents and pull-requests write, passed as `token:` to `release-please-action`. Keep the secret out of the `check` job.
   - Done when: a release PR shows a real, green CI run, and merging it still releases with the zip and its attestation.
-- [ ] Chrome Web Store listing: icons (128px), listing assets, first upload by hand from a release zip, then optionally a CI job that uploads each release zip through the Web Store API
+- [~] Chrome Web Store listing: icons (128px), listing assets, first upload by hand from a release zip, then optionally a CI job that uploads each release zip through the Web Store API
+  - Done in the repo: icons, `store/listing.md` (every field and the privacy answers), screenshots and promo tile (spec "Releases").
+  - Left, by the user: developer account ($5, 2-step verification; decide personal or Tuxedo-Code group publisher), then the first upload of the first release zip that has icons, filled in from `store/listing.md`.
+  - Done when: the listing is live. Then add the store link to README "Install as an extension" (store first, zip as the alternative) and spec "Install", and move the CI upload job to its own task.
+  - `make-images.ts` needs `--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable`: Chrome 154 blocks plain http to a public host name (`ERR_BLOCKED_BY_CLIENT`), even when `--host-resolver-rules` maps it to localhost.
 - [ ] Firefox support ("maybe"; see spec "Supported browsers"):
   - Check what Firefox's `devtools.network` HAR entries contain. If `_resourceType` is missing, find another way to tell Fetch/XHR apart, or list every request that carries Transit.
   - Check the panel, CodeMirror and the clipboard fallback in Firefox DevTools, in both themes.

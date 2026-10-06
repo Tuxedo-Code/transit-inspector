@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import type { Plugin } from "vite";
 
 /**
@@ -18,23 +19,33 @@ export function manifestWithVersion(manifest: Record<string, unknown>, version: 
   return { ...manifest, version };
 }
 
-/** Emits manifest.json into the build output with the package.json version filled in. */
+/** The icon files a manifest refers to, relative to the manifest. */
+export function manifestIcons(manifest: Record<string, unknown>): string[] {
+  return Object.values((manifest.icons ?? {}) as Record<string, string>);
+}
+
+/** Emits manifest.json into the build output with the package.json version filled in, and copies its icons. */
 export function manifestPlugin(manifestPath: string, packagePath: string): Plugin {
+  const read = () => JSON.parse(readFileSync(manifestPath, "utf8"));
   return {
     name: "transit-inspector:manifest",
     apply: "build",
     buildStart() {
       this.addWatchFile(manifestPath);
       this.addWatchFile(packagePath);
+      for (const icon of manifestIcons(read())) this.addWatchFile(resolve(dirname(manifestPath), icon));
     },
     generateBundle() {
-      const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      const manifest = read();
       const { version } = JSON.parse(readFileSync(packagePath, "utf8"));
       this.emitFile({
         type: "asset",
         fileName: "manifest.json",
         source: `${JSON.stringify(manifestWithVersion(manifest, version), null, 2)}\n`,
       });
+      for (const icon of manifestIcons(manifest)) {
+        this.emitFile({ type: "asset", fileName: icon, source: readFileSync(resolve(dirname(manifestPath), icon)) });
+      }
     },
   };
 }
