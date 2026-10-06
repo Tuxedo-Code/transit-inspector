@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.4.0...v0.5.0) (2026-10-06)
+
+
+### Features
+
+* add an extension icon and Chrome Web Store listing assets ([84683f0](https://github.com/Tuxedo-Code/transit-inspector/commit/84683f093baa57989ab52a6e96a4450b3369a621))
+
 ## [0.4.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.3.2...v0.4.0) (2026-10-06)
 
 
