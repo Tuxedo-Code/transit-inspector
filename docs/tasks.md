@@ -301,6 +301,13 @@ Done when:
 - the next release has an attestation and `gh attestation verify` passes on its zip;
 - the repo settings are confirmed on.
 
+Notes:
+- Verified: clean `npm ci` with `ignore-scripts`, both audit gates (0 vulnerabilities, 32 packages with attestations), lint, typecheck, unit and e2e tests, `actionlint` (`mise exec actionlint@1.7.12 -- actionlint`), CI green. Dependabot's first npm and actions update jobs succeeded; its first PR was `chore(deps-dev): bump @types/node ... to 26`. All repo settings are on: alerts, security updates, secret scanning and push protection, private vulnerability reporting.
+- Monthly for npm and actions (user's choice). `@types/node` majors are ignored: they must match the Node major in `mise.toml`, so bump them together by hand. PR #5 was closed for that reason.
+- Still open: the attestation can only be checked on the next release. Run `gh attestation verify transit-inspector-<version>.zip -R Tuxedo-Code/transit-inspector`, then mark `[x]`. The `fix(deps)` / `ci(deps)` titles also show up once there are updates (none were pending).
+- Found while checking CI, fixed separately: a real-DevTools e2e flake (about 8% of CI runs). `launch({ devtools: true })` opened a second DevTools, and the one under test then sometimes rendered no frames under Xvfb, so the Transit tab never reached its DOM. Now one DevTools is opened on the initial tab: 80/80 parallel CI runs passed. On failure, `waitForTransitTab` now reports the DevTools tabs, width and extension pages, and saves a screenshot.
+- Also seen: CI runs on release-please PRs show as failed with zero jobs (GitHub creates a run for the bot's `GITHUB_TOKEN` event but runs nothing). Harmless, but it puts a red X on every release PR. Fixing it needs release-please to use a GitHub App or fine-grained token, which would also make CI really run on release PRs. That's the user's call.
+
 ### [ ] T19 README: privacy and security breakdown
 Depends on: T17, T18
 
