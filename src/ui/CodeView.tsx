@@ -174,6 +174,11 @@ export function CodeView({ doc, language, wrap = false, diagnostics, onCursor, l
   useEffect(() => {
     if (!host.current) return;
     const created = new EditorView({ parent: host.current });
+    // DevTools forwards its global shortcuts (Cmd+F, Esc...) from extension panels even when the page handled them,
+    // so keys the editor handled stop here (docs/spec.md "Known risks").
+    created.dom.addEventListener("keydown", (event) => {
+      if (event.defaultPrevented) event.stopPropagation();
+    });
     view.current = created;
     return () => created.destroy();
   }, []);

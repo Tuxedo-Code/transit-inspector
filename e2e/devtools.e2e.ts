@@ -1,13 +1,14 @@
 // The extension in real DevTools, against e2e/test-server.ts. Opens a visible Chrome window.
 import type { Browser, Page } from "puppeteer";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { launchWithExtension, openPageWithTransitPanel, type Panel } from "./devtools";
+import { devtoolsUi, launchWithExtension, MOD, openPageWithTransitPanel, type Panel, pressShortcut } from "./devtools";
 import { startTestServer, type TestServer } from "./test-server";
 
 let server: TestServer;
 let browser: Browser;
 let closeBrowser: () => Promise<void>;
 let page: Page;
+let devtools: Page;
 let panel: Panel;
 
 const ROW_NAMES = `[...document.querySelectorAll(".request-list tbody tr")].map((tr) => tr.cells[0].textContent)`;
@@ -17,7 +18,7 @@ const ON_LOAD = ["transit", "transit-as-json", "plain", "echo"];
 beforeAll(async () => {
   server = await startTestServer();
   ({ browser, close: closeBrowser } = await launchWithExtension());
-  ({ page, panel } = await openPageWithTransitPanel(browser, server.url));
+  ({ page, devtools, panel } = await openPageWithTransitPanel(browser, server.url));
 });
 
 afterAll(async () => {
@@ -64,6 +65,43 @@ describe("the Transit panel in real DevTools", () => {
       `document.querySelector(".path-footer button").textContent`,
       (label) => label === "Copied",
     );
+  });
+
+  describe("Cmd+F", () => {
+    const CM_SEARCH_OPEN = `!!document.querySelector(".cm-search")`;
+    const CM_SEARCH_FOCUSED = `!!document.activeElement?.matches(".cm-search input[name=search]")`;
+    const settle = () => new Promise((r) => setTimeout(r, 500));
+    // Focus stays in the panel's frame, on no control in particular.
+    const blurPanel = () => panel.evaluate(`document.activeElement?.blur()`);
+
+    it("in the editor opens only the editor's search", async () => {
+      await panel.evaluate(`document.querySelector(".cm-content").focus()`);
+      await pressShortcut(devtools, MOD, "f");
+      await panel.waitFor<boolean>(CM_SEARCH_FOCUSED, Boolean);
+      await settle();
+      expect(await devtoolsUi(devtools)).toMatchObject({ searchBar: false });
+      expect(await panel.evaluate<boolean>(CM_SEARCH_FOCUSED)).toBe(true);
+    });
+
+    it("Esc closes the editor's search without toggling the Console drawer", async () => {
+      await pressShortcut(devtools, "Escape");
+      await panel.waitFor<boolean>(CM_SEARCH_OPEN, (open) => !open);
+      await settle();
+      expect(await devtoolsUi(devtools)).toMatchObject({ drawer: false });
+    });
+
+    it("leaves DevTools shortcuts the panel doesn't use to DevTools", async () => {
+      await blurPanel();
+      await pressShortcut(devtools, "Escape");
+      await vi.waitFor(async () => expect(await devtoolsUi(devtools)).toMatchObject({ drawer: true }));
+      await pressShortcut(devtools, "Escape");
+      await vi.waitFor(async () => expect(await devtoolsUi(devtools)).toMatchObject({ drawer: false }));
+      await blurPanel();
+      await pressShortcut(devtools, MOD, "Shift", "p");
+      await vi.waitFor(async () => expect(await devtoolsUi(devtools)).toMatchObject({ commandMenu: true }));
+      await pressShortcut(devtools, "Escape");
+      await vi.waitFor(async () => expect(await devtoolsUi(devtools)).toMatchObject({ commandMenu: false }));
+    });
   });
 
   it("keeps the list across an SPA route change and adds new requests", async () => {

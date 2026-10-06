@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import puppeteer, { type Browser, type CDPSession, type Page, type Protocol } from "puppeteer";
+import puppeteer, { type Browser, type CDPSession, type KeyInput, type Page, type Protocol } from "puppeteer";
 
 const DIST = resolve(import.meta.dirname, "..", "dist");
 const SCREENSHOTS = resolve(import.meta.dirname, "screenshots");
@@ -48,14 +48,55 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * The page navigates only once its DevTools shows the Transit tab: DevTools then records network traffic, so the
  * page's requests on load are captured even on slow machines.
  */
-export async function openPageWithTransitPanel(browser: Browser, url: string): Promise<{ page: Page; panel: Panel }> {
+export async function openPageWithTransitPanel(
+  browser: Browser,
+  url: string,
+): Promise<{ page: Page; devtools: Page; panel: Panel }> {
   const page = (await browser.pages())[0] ?? (await browser.newPage());
   const devtools = await page.openDevTools();
   await waitForTransitTab(browser, devtools, false);
   await page.goto(url);
   await waitForTransitTab(browser, devtools, true);
   const target = await browser.waitForTarget((t) => t.url().endsWith("/panel.html"), { timeout: 10_000 });
-  return { page, panel: await Panel.create(await target.createCDPSession()) };
+  return { page, devtools, panel: await Panel.create(await target.createCDPSession()) };
+}
+
+/** Cmd on macOS, Ctrl elsewhere: the modifier of DevTools' and CodeMirror's shortcuts. */
+export const MOD = process.platform === "darwin" ? "Meta" : "Control";
+
+/**
+ * Presses a shortcut as a user would, through the DevTools window: the browser routes it to the focused frame,
+ * so a focused panel gets it first, then DevTools' own key forwarding.
+ */
+export async function pressShortcut(devtools: Page, ...keys: KeyInput[]): Promise<void> {
+  const key = keys.at(-1) as KeyInput;
+  const modifiers = keys.slice(0, -1);
+  for (const modifier of modifiers) await devtools.keyboard.down(modifier);
+  await devtools.keyboard.press(key);
+  for (const modifier of modifiers.reverse()) await devtools.keyboard.up(modifier);
+}
+
+/** What DevTools itself shows around the panel: its search bar, the Console drawer, the command menu. */
+export function devtoolsUi(devtools: Page): Promise<{ searchBar: boolean; drawer: boolean; commandMenu: boolean }> {
+  return devtools.evaluate(() => {
+    let searchBar = false;
+    let consoleTabs = 0;
+    let commandMenu = false;
+    const walk = (root: Document | ShadowRoot) => {
+      for (const el of root.querySelectorAll<HTMLElement>("*")) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          if (el.classList.contains("search-bar")) searchBar = true;
+          if (el.classList.contains("filtered-list-widget")) commandMenu = true;
+          // The drawer adds a second Console tab next to the main one.
+          if (el.getAttribute("role") === "tab" && el.textContent?.trim() === "Console") consoleTabs++;
+        }
+        if (el.shadowRoot) walk(el.shadowRoot);
+      }
+    };
+    walk(document);
+    return { searchBar, drawer: consoleTabs > 1, commandMenu };
+  });
 }
 
 async function waitForTransitTab(browser: Browser, devtools: Page, click: boolean): Promise<void> {

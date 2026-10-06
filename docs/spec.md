@@ -286,6 +286,7 @@ User-facing limitations are listed in the README ("Limitations"); keep that sect
 
 - **Clipboard (verified):** `navigator.clipboard.writeText` fails in the panel ("Document is not focused"); `document.execCommand('copy')` with a temporary textarea works. The path footer's Copy button tries the former and falls back to the latter. Native Cmd+C in the editor is unaffected.
 - Bodies of old requests may be evicted by DevTools; show the "body no longer available" state.
+- **Shortcut forwarding (verified):** DevTools injects a `keydown` listener on the panel's `document` (bubble phase) that forwards its global shortcuts (Cmd+F, Esc, Cmd+Shift+P...) to DevTools, without checking whether the page already handled them. Keys an editor handles are therefore stopped at the editor (`src/ui/CodeView.tsx`); every other shortcut still reaches DevTools.
 
 ## Later (not v1)
 
