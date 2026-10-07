@@ -16,9 +16,8 @@ Method ([samples/measure-transit-size.ts](../samples/measure-transit-size.ts), d
 - Each payload is compared with the same decoded value as JSON, the way a JSON API would send it: keywords as `"ns/name"` strings, sets and lists as arrays, UUIDs, instants and big numbers as strings, tagged values as their representation.
 - Sizes in bytes, uncompressed, gzip and brotli (Node `zlib`, default levels).
 
-Output, verbatim (Transit bytes / JSON bytes, negative means Transit is smaller):
+Output, verbatim (the script prints Markdown; Transit bytes / JSON bytes, negative means Transit is smaller):
 
-```text
 Bytes as Transit / JSON (Transit vs JSON). Node 24.21.0, transit-js 0.8.874, zlib default levels.
 
 | Payload | Uncompressed | gzip | brotli |
@@ -37,7 +36,6 @@ Bytes as Transit / JSON (Transit vs JSON). Node 24.21.0, transit-js 0.8.874, zli
 
 Skipped (not readable as Transit):
 - GET /api/broken: Expected ',' or ']' after array element in JSON at position 24 (line 1 column 25)
-```
 
 (`/api/broken` is the sample HAR's deliberately malformed body.)
 
