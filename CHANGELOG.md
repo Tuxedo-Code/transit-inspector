@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.5.0...v0.5.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* show requests in flight during a navigation with their real status and body ([#9](https://github.com/Tuxedo-Code/transit-inspector/issues/9)) ([d62b2ef](https://github.com/Tuxedo-Code/transit-inspector/commit/d62b2efb5f663c72eb43f6cf3ee2c1d6ba1757ac))
+
 ## [0.5.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.4.0...v0.5.0) (2026-10-06)
 
 
