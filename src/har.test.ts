@@ -18,6 +18,15 @@ describe("toRow on the sample HAR", () => {
     expect(listed).toContain("/api/feed");
   });
 
+  it("doesn't list requests still waiting for a response, but lists failed ones", () => {
+    const failed = raws.find((r) => r.entry.request.url.endsWith("/api/stream"));
+    if (!failed) throw new Error("missing sample");
+    expect(isListed(failed.entry)).toBe(true);
+    // DevTools' log has in-flight requests too: status 0 like a failure, but without an error.
+    const waiting = { ...failed.entry, response: { ...failed.entry.response, _error: null } };
+    expect(isListed(waiting)).toBe(false);
+  });
+
   it("detects Transit responses and payloads and keeps their bodies", async () => {
     const row = await rowFor("/api/orders");
     expect(row.request.kind).toBe("transit");

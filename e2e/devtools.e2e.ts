@@ -2,7 +2,7 @@
 import type { Browser, Page } from "puppeteer";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { devtoolsUi, launchWithExtension, MOD, openPageWithTransitPanel, type Panel, pressShortcut } from "./devtools";
-import { startTestServer, type TestServer } from "./test-server";
+import { startTestServer, type TestServer, TRANSIT_BODY } from "./test-server";
 
 let server: TestServer;
 let browser: Browser;
@@ -163,6 +163,34 @@ describe("the Transit panel in real DevTools", () => {
     await page.evaluate(() => (window as unknown as { spa: () => void }).spa());
     await page.evaluate(() => (window as unknown as { later: () => Promise<unknown> }).later());
     await panel.waitFor(ROW_NAMES, sameList([...ON_LOAD, "later"]));
+  });
+
+  it("shows requests in flight during an SPA route change with their final status, size and time", async () => {
+    await panel.evaluate(`document.querySelector(".detail button[aria-label=Close]")?.click()`);
+    await page.evaluate(() => (window as unknown as { spaThenSlow: () => Promise<unknown> }).spaThenSlow());
+    await page.evaluate(() => (window as unknown as { dripThenSpa: () => Promise<unknown> }).dripThenSpa());
+    // Rows read from DevTools' log while these were in flight said "(failed)" (slow) and had a partial size (drip).
+    const cells = `[...document.querySelectorAll(".request-list tbody tr")]
+      .filter((tr) => ["slow", "drip"].includes(tr.cells[0].textContent))
+      .map((tr) => [...tr.cells].map((td) => td.textContent))`;
+    const expected = [
+      ["slow", "POST", "200", `${TRANSIT_BODY.length} B`],
+      ["drip", "GET", "200", `${TRANSIT_BODY.length} B`],
+    ];
+    const rows = await panel.waitFor<string[][]>(cells, (rows) =>
+      sameList(expected.map(String))(rows.map((r) => String(r.slice(0, 4)))),
+    );
+    for (const [, , , , time] of rows) expect(time).toMatch(/^\d\.\d\d s$/);
+
+    await panel.evaluate(
+      `[...document.querySelectorAll(".request-list tbody tr")].find((tr) => tr.cells[0].textContent === "slow").click()`,
+    );
+    await panel.evaluate(
+      `[...document.querySelectorAll(".detail [role=tab]")].find((tab) => tab.textContent === "Response").click()`,
+    );
+    await panel.waitFor<string>(`document.querySelector(".cm-content")?.innerText ?? ""`, (text) =>
+      text.includes(":user/id"),
+    );
   });
 
   it("clears the list on a real page load", async () => {

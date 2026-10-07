@@ -372,3 +372,7 @@ From spec "Later". Not to be started until v1 is done:
   - Check the panel, CodeMirror and the clipboard fallback in Firefox DevTools, in both themes.
   - Decide how to install it: temporary add-on via `about:debugging` (lost on restart), Developer Edition/Nightly with signing off, or free Mozilla signing.
   - Decide how to test it automatically (Puppeteer's Firefox support doesn't cover DevTools panels; WebDriver BiDi or a manual checklist).
+- [x] Bug: a request in flight during a navigation shows "(failed)" and "No response body", or a stale size and time, although it succeeded
+  - Cause: the rebuild on `onNavigated` (also fired by SPA `pushState`) reads `getHAR()`, which includes requests still in flight; their rows were kept and the finished entry from `onRequestFinished` was ignored as a duplicate.
+  - Fix: requests still waiting (status 0, no `_error`) aren't listed (`isListed` in `src/har.ts`); `RequestStore.add` replaces a row with the same id, newest entry wins. What `getHAR()` holds mid-flight: spec "Capture and navigation".
+  - Covered by unit tests and a real-DevTools test with `/api/slow` and `/api/drip` in `e2e/test-server.ts`.

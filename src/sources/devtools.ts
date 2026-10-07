@@ -20,7 +20,8 @@ function wrap(request: DevtoolsRequest): RawEntry {
  * Requests from DevTools (spec "Capture and navigation"):
  * subscribe to finished requests, backfill from getHAR(), and rebuild from getHAR() on every navigation.
  * DevTools' own log keeps entries across SPA route changes and drops them on real page loads, so mirroring it
- * gives the right clearing behavior. Requests finishing while a rebuild is in flight are re-added to it.
+ * gives the right clearing behavior. The log also holds requests still in flight; the entry from `onRequestFinished`
+ * replaces what was read from it. Requests finishing while a rebuild is in flight are re-added after it.
  */
 export function devtoolsSource(network: Network = chrome.devtools.network): Source {
   return {
@@ -37,7 +38,8 @@ export function devtoolsSource(network: Network = chrome.devtools.network): Sour
         network.getHAR((log) => {
           const finishedMeanwhile = inFlight ?? [];
           inFlight = null;
-          sink.replace([...(log.entries as DevtoolsRequest[]).map(wrap), ...finishedMeanwhile]);
+          sink.replace((log.entries as DevtoolsRequest[]).map(wrap));
+          sink.add(finishedMeanwhile);
         });
       };
 
