@@ -22,6 +22,8 @@ export class RequestStore implements Sink {
    */
   private readonly arrival = new Map<string, number>();
   private nextArrival = 0;
+  /** The newest entry being converted per request; an older conversion that finishes later is discarded. */
+  private readonly latest = new Map<string, RawEntry>();
   private generation = 0;
   private readonly listeners = new Set<Listener>();
 
@@ -35,8 +37,9 @@ export class RequestStore implements Sink {
     return this.rows;
   }
 
+  /** Finished entries replace rows read earlier, e.g. from a `replace` while their request was in flight. */
   add(entries: RawEntry[]): void {
-    this.ingest(entries, this.generation);
+    this.ingest(entries, true);
   }
 
   replace(entries: RawEntry[]): void {
@@ -47,37 +50,44 @@ export class RequestStore implements Sink {
     // The replacement list is authoritative for order too (DevTools lists entries in start order).
     this.arrival.clear();
     for (const id of ids) this.arrival.set(id, this.nextArrival++);
+    this.latest.clear();
     this.generation++;
     this.rows = [...this.known.values()].sort(this.byStart);
     this.emit();
-    this.ingest(entries, this.generation);
+    this.ingest(entries, false);
   }
 
   clear(): void {
     for (const id of this.known.keys()) this.cleared.add(id);
     this.known.clear();
     this.arrival.clear();
+    this.latest.clear();
     this.generation++;
     this.rows = [];
     this.emit();
   }
 
-  private ingest(entries: RawEntry[], generation: number): void {
+  private ingest(entries: RawEntry[], replaceKnown: boolean): void {
+    const generation = this.generation;
     for (const raw of entries) {
       if (!isListed(raw.entry)) continue;
       const id = entryId(raw.entry);
-      if (this.known.has(id) || this.cleared.has(id)) continue;
+      if (this.cleared.has(id) || (!replaceKnown && this.known.has(id))) continue;
       if (!this.arrival.has(id)) this.arrival.set(id, this.nextArrival++);
+      this.latest.set(id, raw);
       void toRow(raw).then((row) => {
-        if (generation !== this.generation || this.known.has(id) || this.cleared.has(id)) return;
+        if (this.latest.get(id) !== raw) return;
+        this.latest.delete(id);
+        if (generation !== this.generation || this.cleared.has(id)) return;
         this.insert(row);
       });
     }
   }
 
+  /** Inserts a row at its start-time position, replacing any earlier row for the same request. */
   private insert(row: RequestRow): void {
     this.known.set(row.id, row);
-    const rows = [...this.rows];
+    const rows = this.rows.filter((existing) => existing.id !== row.id);
     let index = rows.length;
     while (index > 0 && this.byStart(rows[index - 1] as RequestRow, row) > 0) index--;
     rows.splice(index, 0, row);

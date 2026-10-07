@@ -76,7 +76,11 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - **On panel start:** subscribe to `onRequestFinished`, then call `getHAR()` to backfill.
   - `getHAR()` returns every request DevTools has recorded since it opened, even if neither the Network panel nor our panel was open yet.
   - Its entries support `getContent()`.
-  - Deduplicate entries seen by both by `startedDateTime` + method + URL.
+  - Deduplicate entries seen by both by `startedDateTime` + method + URL; the entry from `onRequestFinished` wins.
+- **`getHAR()` also returns requests still in flight** (verified in Chrome 154):
+  - waiting for a response: status 0 like a failed request, but no `_error`. Not listed; it arrives through `onRequestFinished`.
+  - downloading: the real status, but partial size and time. `getContent()` waits for the whole body. The entry from `onRequestFinished` replaces the row.
+  - failed (network error, CORS, cancelled): status 0 with `_error` (`net::ERR_*`). `onRequestFinished` fires for these too.
 - **`onRequestFinished`** delivers requests in finish order, so sort by `startedDateTime`.
 - **Navigation: mirror DevTools' own log.** On `onNavigated`, re-read `getHAR()` and rebuild the list from it.
   - `onNavigated` also fires on SPA `history.pushState` and several times per reload, so it cannot mean "clear" by itself.

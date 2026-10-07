@@ -25,8 +25,17 @@ export function entryId(entry: HarEntry): string {
   return `${entry.startedDateTime} ${entry.request.method} ${entry.request.url}`;
 }
 
+/**
+ * DevTools' log also holds requests still in flight. One waiting for its response has status 0 like a failed
+ * request, but no error; it is listed once it finishes (spec "Capture and navigation").
+ */
+function awaitingResponse(entry: HarEntry): boolean {
+  return entry.response.status === 0 && !entry.response._error;
+}
+
+/** Fetch/XHR requests that got a response or failed. */
 export function isListed(entry: HarEntry): boolean {
-  return LISTED_TYPES.has(entry._resourceType ?? "");
+  return LISTED_TYPES.has(entry._resourceType ?? "") && !awaitingResponse(entry);
 }
 
 const BINARY_MIME = /^(image|audio|video|font)\/|^application\/(octet-stream|pdf|zip)/i;
