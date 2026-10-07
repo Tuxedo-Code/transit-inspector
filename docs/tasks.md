@@ -365,7 +365,7 @@ From spec "Later". Not to be started until v1 is done:
 - [~] Chrome Web Store listing: icons (128px), listing assets, first upload by hand from a release zip, then optionally a CI job that uploads each release zip through the Web Store API
   - Done in the repo: icons, `store/listing.md` (every field and the privacy answers), screenshots and promo tile (spec "Releases").
   - Left, by the user: developer account ($5, 2-step verification; decide personal or Tuxedo-Code group publisher), then the first upload of the first release zip that has icons, filled in from `store/listing.md`.
-  - Done when: the listing is live. Then add the store link to README "Install as an extension" (store first, zip as the alternative) and spec "Install", and move the CI upload job to its own task.
+  - Done when: the listing is live. Then add the store link to README "Install" (store first, zip as the alternative) and spec "Install", and move the CI upload job to its own task.
   - `make-images.ts` needs `--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable`: Chrome 154 blocks plain http to a public host name (`ERR_BLOCKED_BY_CLIENT`), even when `--host-resolver-rules` maps it to localhost.
 - [ ] Firefox support ("maybe"; see spec "Supported browsers"):
   - Check what Firefox's `devtools.network` HAR entries contain. If `_resourceType` is missing, find another way to tell Fetch/XHR apart, or list every request that carries Transit.

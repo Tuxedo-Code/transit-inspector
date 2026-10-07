@@ -1,6 +1,6 @@
 # Chrome Web Store listing
 
-What to enter in the [developer dashboard](https://chrome.google.com/webstore/devconsole), field by field. Keep it in sync with the README: every claim here must stay true of the shipped extension (spec "Privacy").
+What to enter in the [developer dashboard](https://chrome.google.com/webstore/devconsole), field by field. Keep it in sync with the README and `PRIVACY.md`: every claim here must stay true of the shipped extension (spec "Privacy").
 
 The images in this folder come from `npm run build && node store/make-images.ts` (screenshots from the real extension in real DevTools, plus the promo tile). Regenerate them on macOS, where the fonts match DevTools there, when the UI changes.
 
@@ -47,7 +47,7 @@ Open source (MIT): https://github.com/Tuxedo-Code/transit-inspector
 - **Remote code:** No, I am not using remote code. (All code ships in the package; the CSP allows `script-src 'self'` only.)
 - **Data usage:** collects none of the listed data types. Captured requests are shown in the panel and never leave DevTools.
 - **Certify** all three: data is not sold or transferred to third parties, not used for purposes unrelated to the single purpose, and not used to determine creditworthiness or for lending.
-- **Privacy policy URL:** https://github.com/Tuxedo-Code/transit-inspector#privacy-and-security
+- **Privacy policy URL:** https://github.com/Tuxedo-Code/transit-inspector/blob/main/PRIVACY.md
 
 ## Distribution tab
 

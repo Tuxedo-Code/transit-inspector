@@ -2,7 +2,7 @@
 
 Source of truth for product and architecture decisions. If an implementation needs to deviate, update this file in the same change and say why.
 
-Last updated: 2026-10-06
+Last updated: 2026-10-07
 
 ## Goal
 
@@ -217,25 +217,11 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - Vitest for unit tests, Biome for lint and format.
 - No Web Worker: a 3 MB Transit response decodes, prints and opens in about 100-150 ms on the main thread (measured in T10). Revisit only if real payloads feel slow.
 
-npm scripts:
-
-| Script | Does |
-|---|---|
-| `dev` | UI in a normal tab with sample data and hot reload |
-| `dev:ext` | `vite build --watch` into `dist/` (reload the extension and reopen DevTools to see changes) |
-| `build` | typecheck plus production build into `dist/` |
-| `test` | Vitest |
-| `test:e2e` | build, install Chrome for Testing if missing, run the Puppeteer tests (opens a Chrome window) |
-| `lint` | Biome check |
-| `package` | build, then zip `dist/` to `transit-inspector-<version>.zip` |
+The npm scripts are listed in [CONTRIBUTING.md "Commands"](../CONTRIBUTING.md#commands).
 
 ## Install (no store)
 
-1. Download `transit-inspector-<version>.zip` from the latest GitHub Release and unzip it, or build from source with `npm run build` (output in `dist/`).
-2. Open `chrome://extensions`, turn on Developer mode, click "Load unpacked" and choose the unzipped folder (or `dist/`).
-3. To update, replace the folder's contents (or rebuild) and click the extension's reload button.
-
-Self-signed `.crx` files are not installable on Mac/Windows Chrome without enterprise policy, so they are not used.
+Users unzip the release zip and load it with "Load unpacked" (steps in the [README](../README.md#install)). Self-signed `.crx` files are not installable on Mac/Windows Chrome without enterprise policy, so they are not used.
 
 ## Releases
 
@@ -248,7 +234,7 @@ Self-signed `.crx` files are not installable on Mac/Windows Chrome without enter
 - To force a specific next version, add a `Release-As: x.y.z` footer to a commit message. The first release used `initial-version` in `release-please-config.json`: a manifest at `0.0.0` counts as "never released", and the node strategy would otherwise start at 1.0.0.
 - Settings required: "Allow GitHub Actions to create and approve pull requests" under Actions > General, first in the Tuxedo-Code organization settings (it overrides the repo), then in the repo. Without it, the `release` job can't open the release PR.
 - **Chrome Web Store:** the release zip has `manifest.json` at its root, a version Chrome accepts and the icons, so it is uploaded to the store as is.
-  - `store/listing.md` holds every listing field and the privacy-practices answers; its claims must stay true, like the README's (see "Privacy").
+  - `store/listing.md` holds every listing field and the privacy-practices answers; its claims must stay true, like those in `PRIVACY.md` and the README (see "Privacy").
   - The screenshots and the promo tile in `store/` come from `node store/make-images.ts`: it replays `samples/basic.har` from a local server that Chrome reaches as `app.example.com`, and captures the real panel in an undocked DevTools window sized to the store's 1280x800. Run it on macOS after UI changes, since it renders with the system fonts.
   - Uploads are by hand in the developer dashboard for now (see "Later").
 
@@ -290,14 +276,14 @@ In place since T18.
   - The extension is installed with `browser.installExtension()` and awaited before any DevTools window opens. Puppeteer's `launch({ enableExtensions: [path] })` doesn't await the install, which made CI flaky.
   - A local test server serves a page making Transit and non-Transit fetch/XHR calls.
   - The test clicks the Transit tab, then drives and inspects the panel through a CDP session on the panel's own target, with `chrome.devtools.*` available.
-  - Passed 8 runs in a row when set up. If it becomes flaky, fix it or fall back to a short manual checklist in the README.
+  - Passed 8 runs in a row when set up. If it becomes flaky, fix it or fall back to a short manual checklist in `CONTRIBUTING.md`.
 - The real DevTools tests also prove the privacy promise: no CSP violations during normal use, and nothing sent from the panel reaches a server (see "Privacy").
 - Both layers run with `npm run test:e2e` (Vitest, `e2e/*.e2e.ts`). Screenshots go to `e2e/screenshots/` (gitignored) for review.
 - **CI (GitHub Actions, `.github/workflows/ci.yml`):** lint, typecheck, unit and e2e on every push to `main` and every pull request. On Linux, e2e runs under `xvfb-run` because the DevTools tests need a headed browser. Screenshots are uploaded as a workflow artifact. On `main`, a `release` job follows (see "Releases").
 
 ## Known risks
 
-User-facing limitations are listed in the README ("Limitations"); keep that section in sync when a decision here changes what users see.
+User-facing limitations are listed in [guide.md](guide.md#limitations) (the README shows the top three); keep them in sync when a decision here changes what users see.
 
 - **Clipboard (verified):** `navigator.clipboard.writeText` fails in the panel ("Document is not focused"); `document.execCommand('copy')` with a temporary textarea works. The path footer's Copy button tries the former and falls back to the latter. Native Cmd+C in the editor is unaffected.
 - Bodies of old requests may be evicted by DevTools; show the "body no longer available" state.

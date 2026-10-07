@@ -10,10 +10,16 @@ Only the [latest release](https://github.com/Tuxedo-Code/transit-inspector/relea
 
 ## What's in scope
 
-Transit Inspector promises to make no network requests and to keep captured traffic inside DevTools ([docs/spec.md "Privacy"](docs/spec.md#privacy)). Any way to get data out of the extension, or to make it run code it didn't ship with, counts as a vulnerability.
+Transit Inspector promises to make no network requests and to keep captured traffic inside DevTools ([PRIVACY.md](PRIVACY.md)). Any way to get data out of the extension, or to make it run code it didn't ship with, counts as a vulnerability.
 
-Release zips carry a build provenance attestation. To check that a zip was built by this repository's CI:
+## Verifying a release
+
+Each release zip is built by CI and carries a signed build attestation. To check that a download came from this repository, use [`gh attestation verify`](https://cli.github.com/manual/gh_attestation_verify):
 
 ```sh
 gh attestation verify transit-inspector-<version>.zip -R Tuxedo-Code/transit-inspector
 ```
+
+## Dependencies
+
+Dependencies are updated monthly by Dependabot, merged by hand after CI, and audited in CI for known vulnerabilities and registry signatures. Install scripts of npm packages don't run. Details: [docs/spec.md "Dependencies and supply chain"](docs/spec.md#dependencies-and-supply-chain).
