@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.5.1...v0.6.0) (2026-10-08)
+
+
+### Features
+
+* show EDN strings as plain text, opened from a chip or the path footer ([d230bee](https://github.com/Tuxedo-Code/transit-inspector/commit/d230beef0bcb3386cf319ff23d75ff514fb03e4a))
+
+
+### Bug Fixes
+
+* keep "Copied" on the path footer's Copy button after a quick click ([d518e21](https://github.com/Tuxedo-Code/transit-inspector/commit/d518e21b2fd24ed2946a1ad0c9ee21c6b97899ea))
+
 ## [0.5.1](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.5.0...v0.5.1) (2026-10-07)
 
 
