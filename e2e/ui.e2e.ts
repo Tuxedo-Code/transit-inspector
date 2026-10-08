@@ -317,8 +317,137 @@ describe("detail view", () => {
     expect(await page.$eval(".path-footer .path", (path) => path.textContent)).toBe(
       "[:user/orders 2 :order/items 0 :item/sku]",
     );
-    await page.click(".path-footer button");
+    await page.click(".path-footer button::-p-text(Copy path)");
     await page.waitForFunction(() => document.querySelector(".path-footer button")?.textContent === "Copied");
+  });
+
+  it("shows a string as plain text, following the cursor from string to string", async () => {
+    const showText = ".path-footer button::-p-text(Show text)";
+    const viewer = () =>
+      page.$eval(".text-viewer", (viewer) => {
+        const content = viewer.querySelector(".cm-content") as unknown as ViewDom;
+        return {
+          header: [...viewer.querySelectorAll(".text-viewer-header .path, .text-viewer-header .label")].map(
+            (element) => element.textContent,
+          ),
+          text: content.cmTile.root.view.state.doc.toString(),
+        };
+      });
+    await selectRow("payments");
+    await clickInEdn("clojure.lang.ExceptionInfo");
+    await page.click(showText);
+    await page.waitForSelector(".text-viewer .cm-content");
+    const trace = await viewer();
+    expect(trace.header).toEqual(["Text", "[:error/stacktrace]", "13 lines"]);
+    expect(trace.text.split("\n").slice(0, 2)).toEqual([
+      'clojure.lang.ExceptionInfo: Card declined: "insufficient_funds" {:payment/amount 10.00M, :payment/currency :EUR}',
+      "\tat shop.payments.gateway$charge_BANG_.invokeStatic(gateway.clj:88)",
+    ]);
+    expect(await page.$(showText)).toBeNull();
+
+    // Select all and copy gives the string itself, not its escaped EDN form.
+    const mod = process.platform === "darwin" ? "Meta" : "Control";
+    await page.click(".text-viewer .cm-content");
+    await page.keyboard.down(mod);
+    await page.keyboard.press("a");
+    await page.keyboard.up(mod);
+    const copied = await page.$eval(".text-viewer .cm-content", (content) => {
+      const clipboardData = new DataTransfer();
+      content.dispatchEvent(new ClipboardEvent("copy", { clipboardData, bubbles: true, cancelable: true }));
+      return clipboardData.getData("text/plain");
+    });
+    expect(copied).toBe(trace.text);
+
+    // Follows the cursor onto another string, and keeps it when the cursor leaves strings.
+    await clickInEdn("Card declined");
+    // The editor gets its new document in an effect, after the header.
+    await page.waitForFunction(() => document.querySelector(".text-viewer .cm-content")?.textContent?.length === 35);
+    expect(await viewer()).toEqual({
+      header: ["Text", "[:error/message]", "1 line"],
+      text: 'Card declined: "insufficient_funds"',
+    });
+    await clickInEdn(":error/code");
+    expect(await page.$eval(".path-footer .path", (path) => path.textContent)).toBe("[:error/code]");
+    expect((await viewer()).header[1]).toBe("[:error/message]");
+
+    // Cmd+F in the viewer searches the viewer.
+    await page.click(".text-viewer .cm-content");
+    await page.keyboard.down(mod);
+    await page.keyboard.press("f");
+    await page.keyboard.up(mod);
+    await page.waitForSelector(".text-viewer .cm-search");
+    expect(await page.$$(".cm-search")).toHaveLength(1);
+
+    await page.click("button[aria-label='Close text']");
+    expect(await page.$(".text-viewer")).toBeNull();
+
+    // Closes with the body it belongs to.
+    await clickInEdn("clojure.lang.ExceptionInfo");
+    await page.click(showText);
+    await page.waitForSelector(".text-viewer");
+    await page.click("[role=tab]::-p-text(Payload)");
+    await page.waitForFunction(() => !document.querySelector(".text-viewer"));
+  });
+
+  it("marks strings with line breaks with a chip that opens them as text", async () => {
+    await selectRow("payments");
+    // One chip, right before the stack trace's opening quote; none for single-line strings.
+    const chips = await page.$$eval(".pane .cm-string-chip", (chips) =>
+      chips.map((chip) => {
+        const { view } = (chip.closest(".cm-content") as unknown as ViewDom).cmTile.root;
+        const at = view.posAtDOM(chip);
+        return { label: (chip as HTMLElement).dataset.text, next: view.state.sliceDoc(at, at + 11) };
+      }),
+    );
+    expect(chips).toEqual([{ label: "13 lines", next: '"clojure.la' }]);
+
+    // Not part of the text: neither drawn as text nor copied.
+    expect(await ednText()).not.toContain("13 lines");
+    await page.click(".pane .cm-content");
+    const mod = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.down(mod);
+    await page.keyboard.press("a");
+    await page.keyboard.up(mod);
+    const copied = await page.$eval(".pane .cm-content", (content) => {
+      const clipboardData = new DataTransfer();
+      content.dispatchEvent(new ClipboardEvent("copy", { clipboardData, bubbles: true, cancelable: true }));
+      return clipboardData.getData("text/plain");
+    });
+    expect(copied).toBe((await ednSelection()).doc);
+
+    // Opens the viewer on its string, with the cursor in it.
+    await page.click(".cm-string-chip");
+    await page.waitForSelector(".text-viewer .cm-content");
+    expect(await page.$eval(".text-viewer-header .path", (path) => path.textContent)).toBe("[:error/stacktrace]");
+    expect(await page.$eval(".path-footer .path", (path) => path.textContent)).toBe("[:error/stacktrace]");
+
+    // With the viewer showing another string, switches back to the chip's.
+    await clickInEdn("Card declined");
+    await page.waitForFunction(
+      () => document.querySelector(".text-viewer-header .path")?.textContent === "[:error/message]",
+    );
+    await page.click(".cm-string-chip");
+    await page.waitForFunction(
+      () => document.querySelector(".text-viewer-header .path")?.textContent === "[:error/stacktrace]",
+    );
+  });
+
+  it("fits the text viewer in a narrow panel, side by side", async () => {
+    await page.setViewport({ width: 560, height: 650, deviceScaleFactor: 2 });
+    await selectRow("payments");
+    await page.click(".segmented button:nth-child(2)");
+    await page.waitForFunction(() => document.querySelectorAll(".cm-editor").length === 2);
+    // The stack trace's text starts past the pane's edge, after its chip; the message's is in view.
+    await clickInEdn("Card");
+    await page.waitForSelector(".path-footer button::-p-text(Show text)");
+    await screenshot("show-text-narrow");
+    await page.click(".cm-string-chip");
+    await page.waitForSelector(".text-viewer .cm-content");
+    const overflow = await page.$eval(".text-viewer-header", (header) =>
+      [...header.children].map((child) => child.getBoundingClientRect().right - header.getBoundingClientRect().right),
+    );
+    expect(Math.max(...overflow)).toBeLessThanOrEqual(0);
+    await screenshot("text-viewer-narrow");
   });
 
   it("copies a whole multi-MB body with select all, although only visible lines are drawn", async () => {
@@ -414,6 +543,16 @@ describe("screenshots for review", () => {
       await page.keyboard.type("order");
       await screenshot(`search-${scheme}`);
       await page.keyboard.press("Escape");
+      await selectRow("payments");
+      await screenshot(`string-chip-${scheme}`);
+      await page.hover(".cm-string-chip");
+      await page.screenshot({
+        path: resolve(SCREENSHOTS, `string-chip-hover-${scheme}.png`),
+        clip: { x: 430, y: 110, width: 500, height: 60 },
+      });
+      await page.click(".cm-string-chip");
+      await page.waitForSelector(".text-viewer .cm-content");
+      await screenshot(`text-viewer-${scheme}`);
       await page.click(".segmented button:nth-child(2)");
       await selectRow("search?q=transit&limit=50");
       await screenshot(`split-${scheme}`);

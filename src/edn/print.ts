@@ -11,6 +11,8 @@ export interface PathNode {
   children: PathNode[];
   /** Collections only: the opening delimiter's length (2 for `#{`). The closing one is always one character. */
   open?: number;
+  /** Strings only: the string itself, unescaped. */
+  text?: string;
 }
 
 export interface Range {
@@ -50,15 +52,36 @@ export function formatPath(path: PathStep[]): string {
   return `[${path.map((step) => (typeof step === "number" ? String(step) : printFlat(step))).join(" ")}]`;
 }
 
-/** The path of the innermost value at a text offset; null outside any value. */
-export function pathAt(index: PathNode, offset: number): PathStep[] | null {
+/** The innermost value at a text offset; null outside any value. A cursor right after a value counts as on it. */
+export function nodeAt(index: PathNode, offset: number): PathNode | null {
   if (offset < index.from || offset > index.to) return null;
   let node = index;
   for (;;) {
     const child = childAt(node.children, offset);
-    if (!child) return node.path;
+    if (!child) return node;
     node = child;
   }
+}
+
+/** Strings with a line break, in text order: the ones the EDN text shows as an unreadable run of `\n`. */
+export function multiLineStrings(index: PathNode): PathNode[] {
+  const found: PathNode[] = [];
+  const visit = (node: PathNode) => {
+    if (node.text !== undefined && /[\n\r]/.test(node.text)) found.push(node);
+    for (const child of node.children) visit(child);
+  };
+  visit(index);
+  return found;
+}
+
+/** The number of lines in a text, counting `\r\n`, `\r` and `\n` as line breaks. */
+export function lineCount(text: string): number {
+  return text.split(/\r\n|\r|\n/).length;
+}
+
+/** The path of the innermost value at a text offset; null outside any value. */
+export function pathAt(index: PathNode, offset: number): PathStep[] | null {
+  return nodeAt(index, offset)?.path ?? null;
 }
 
 /**
@@ -143,7 +166,10 @@ class Printer {
         this.emit(scalar(node));
     }
     if (node.problem) this.marks.push({ ...node.problem, from, to: this.offset });
-    return open ? { from, to: this.offset, path, children, open } : { from, to: this.offset, path, children };
+    const to = this.offset;
+    if (open) return { from, to, path, children, open };
+    if (node.type === "string") return { from, to, path, children, text: node.value };
+    return { from, to, path, children };
   }
 
   private map(node: Extract<EdnNode, { type: "map" }>, path: PathStep[], flat: boolean, children: PathNode[]): void {

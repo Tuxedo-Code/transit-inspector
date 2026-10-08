@@ -11,12 +11,21 @@ import {
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
 import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
-import { drawSelection, EditorView, keymap, lineNumbers } from "@codemirror/view";
+import {
+  Decoration,
+  drawSelection,
+  EditorView,
+  highlightSpecialChars,
+  keymap,
+  lineNumbers,
+  WidgetType,
+} from "@codemirror/view";
 import { styleTags, tags } from "@lezer/highlight";
 import { clojureLanguage } from "@nextjournal/lang-clojure";
 import { useEffect, useRef } from "preact/hooks";
 
-export type CodeLanguage = "edn" | "json";
+/** `text` is plain text with control characters made visible, e.g. a string's contents. */
+export type CodeLanguage = "edn" | "json" | "text";
 
 /** EDN via the Clojure grammar, with the node types it doesn't style itself. */
 const ednLanguage = new LanguageSupport(
@@ -32,6 +41,12 @@ const ednLanguage = new LanguageSupport(
     ],
   }),
 );
+
+const LANGUAGE: Record<CodeLanguage, Extension[]> = {
+  edn: [foldGutter(), ednLanguage, bracketMatching()],
+  json: [json(), bracketMatching()],
+  text: [highlightSpecialChars()],
+};
 
 /** Colors come from CSS variables (panel.css) holding DevTools' own token colors for each theme. */
 const highlightStyle = HighlightStyle.define([
@@ -71,6 +86,24 @@ const viewerTheme = EditorView.theme({
     color: "var(--fg-subtle)",
     padding: "0 4px",
   },
+  // Padded like the Console's "Show more" button (.expandable-inline-button, measured in Chrome 154). That button has
+  // the page's background until hovered, so it reads as plain text; the chip takes the fold placeholder's colors so it
+  // reads as something to click.
+  ".cm-string-chip": {
+    display: "inline-block",
+    padding: "1px 3px",
+    // The printed space before the string is already on its left; one more character's width parts it from the quote.
+    margin: "0 1ch 0 0",
+    borderRadius: "3px",
+    backgroundColor: "var(--neutral-container)",
+    color: "var(--fg-subtle)",
+    lineHeight: "normal",
+    whiteSpace: "nowrap",
+    cursor: "pointer",
+  },
+  ".cm-string-chip::after": { content: "attr(data-text)" },
+  // DevTools' hover color is a translucent overlay, so it goes on top of the chip's own background.
+  ".cm-string-chip:hover": { backgroundImage: "linear-gradient(var(--hover), var(--hover))", color: "var(--fg)" },
   ".cm-panels": { backgroundColor: "var(--toolbar-bg)", color: "var(--fg)" },
   ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--divider)" },
   ".cm-search": { fontFamily: "var(--ui-font-family)", fontSize: "12px" },
@@ -149,6 +182,56 @@ export interface Forms {
   around(from: number, to: number): Range | null;
 }
 
+/** Strings that get a chip before their opening quote (EDN pane), which opens them as text. */
+export interface StringChips {
+  /** The strings' start offsets and chip labels, in text order. */
+  at: readonly { from: number; label: string }[];
+  open(from: number): void;
+}
+
+/**
+ * A small button like the Console's "Show more", drawn before a string. Its label is CSS generated content, as in
+ * DevTools, so it never becomes part of the editor's text, copies or search.
+ */
+class StringChip extends WidgetType {
+  constructor(
+    readonly from: number,
+    readonly label: string,
+    readonly open: (from: number) => void,
+  ) {
+    super();
+  }
+
+  override eq(other: StringChip): boolean {
+    return other.from === this.from && other.label === this.label;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const chip = document.createElement("span");
+    chip.className = "cm-string-chip";
+    chip.dataset.text = this.label;
+    chip.title = "Show as text";
+    chip.setAttribute("role", "button");
+    chip.setAttribute("aria-label", `Show as text, ${this.label}`);
+    // CodeMirror ignores events inside widgets (ignoreEvent), so the chip handles its own clicks.
+    chip.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      view.dispatch({ selection: { anchor: this.from + 1 } });
+      view.focus();
+      this.open(this.from);
+    });
+    return chip;
+  }
+}
+
+function stringChips(chips: StringChips): Extension {
+  const widgets = chips.at.map(({ from, label }) =>
+    Decoration.widget({ widget: new StringChip(from, label, chips.open), side: -1 }).range(from),
+  );
+  return EditorView.decorations.of(Decoration.set(widgets, true));
+}
+
 /** Double-clicking a bracket selects its form; Cmd+I expands the selection form by form, like Calva. */
 function formSelection(forms: Forms): Extension[] {
   return [
@@ -179,21 +262,28 @@ function formSelection(forms: Forms): Extension[] {
   ];
 }
 
-function extensionsFor(
-  language: CodeLanguage,
-  wrap: boolean,
-  forms: Forms | undefined,
-  onCursor: (offset: number) => void,
-): Extension[] {
+function extensionsFor({
+  language,
+  wrap,
+  forms,
+  chips,
+  onCursor,
+}: {
+  language: CodeLanguage;
+  wrap: boolean;
+  forms: Forms | undefined;
+  chips: StringChips | undefined;
+  onCursor: (offset: number) => void;
+}): Extension[] {
   return [
     lineNumbers(),
-    ...(language === "edn" ? [foldGutter(), ednLanguage] : [json()]),
+    ...LANGUAGE[language],
     drawSelection(),
-    bracketMatching(),
     highlightSelectionMatches(),
     search({ top: true }),
     // Before the default keymap, so its Cmd+I wins.
     ...(forms ? formSelection(forms) : []),
+    ...(chips ? [stringChips(chips)] : []),
     keymap.of([...searchKeymap, ...foldKeymap, ...defaultKeymap]),
     syntaxHighlighting(highlightStyle),
     viewerTheme,
@@ -215,15 +305,17 @@ interface Props {
   diagnostics: readonly Diagnostic[];
   /** Enables selecting forms by bracket double-click and Cmd+I. */
   forms?: Forms;
+  /** Chips before strings that open them as text. */
+  chips?: StringChips | undefined;
   onCursor?: (offset: number) => void;
   label: string;
 }
 
 /**
  * A read-only CodeMirror viewer with default editor behavior (selection, copy, folding, Cmd+F search), plus form
- * selection when given `forms`.
+ * selection when given `forms` and string chips when given `chips`.
  */
-export function CodeView({ doc, language, wrap = false, diagnostics, forms, onCursor, label }: Props) {
+export function CodeView({ doc, language, wrap = false, diagnostics, forms, chips, onCursor, label }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const cursorListener = useRef(onCursor);
@@ -247,12 +339,18 @@ export function CodeView({ doc, language, wrap = false, diagnostics, forms, onCu
     current.setState(
       EditorState.create({
         doc,
-        extensions: extensionsFor(language, wrap, forms, (offset) => cursorListener.current?.(offset)),
+        extensions: extensionsFor({
+          language,
+          wrap,
+          forms,
+          chips,
+          onCursor: (offset) => cursorListener.current?.(offset),
+        }),
       }),
     );
     if (diagnostics.length > 0) current.dispatch(setDiagnostics(current.state, [...diagnostics]));
     current.contentDOM.setAttribute("aria-label", label);
-  }, [doc, language, wrap, forms, diagnostics, label]);
+  }, [doc, language, wrap, forms, chips, diagnostics, label]);
 
   return <div class="code-view" ref={host} />;
 }

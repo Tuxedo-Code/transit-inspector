@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatSize, formatTime, matchesFilter, requestName } from "./format";
+import { formatLines, formatSize, formatTime, matchesFilter, requestName } from "./format";
 
 describe("requestName", () => {
   it("shows the last path segment plus query string", () => {
@@ -37,6 +37,14 @@ describe("formatTime", () => {
     expect(formatTime(2.4)).toBe("2 ms");
     expect(formatTime(1234)).toBe("1.23 s");
     expect(formatTime(-1)).toBe("");
+  });
+});
+
+describe("formatLines", () => {
+  it("counts lines, singular for one and with thousands separators", () => {
+    expect(formatLines(1)).toBe("1 line");
+    expect(formatLines(13)).toBe("13 lines");
+    expect(formatLines(1204)).toBe("1,204 lines");
   });
 });
 

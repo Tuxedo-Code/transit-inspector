@@ -114,7 +114,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - Decode with the official `transit-js` library (JSON format only).
 - Print our own EDN text from the decoded value, pretty-printed with indentation:
   - keywords (incl. namespaced) and symbols;
-  - strings (escaped), chars;
+  - strings (escaped; the text viewer shows them unescaped), chars;
   - integers, including those above 2^53, shown exactly with no rounding;
   - floats, big integers, big decimals;
   - `nil`, `true`, `false`;
@@ -181,8 +181,19 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - **Path footer** (EDN pane only):
   - a footer under the EDN pane shows the EDN path of the value at the cursor or selection, as a `get-in` vector (e.g. `[:user :orders 0 :id]`), from the path index;
   - it updates as the cursor moves and is empty when the cursor is not on a value;
-  - a small "Copy" button next to the path copies it;
-  - no keyboard shortcut and no toolbar button.
+  - a small "Copy path" button next to the path copies it;
+  - with the cursor on a string, a "Show text" button opens the text viewer (below);
+  - no keyboard shortcut and no toolbar button;
+  - in a pane narrower than 320px (side by side, DevTools docked to the side) the labels are hidden ("Path"; in the text viewer "Text" and the line count), and the footer puts the path on one row and its buttons on the next.
+- **Text viewer** (EDN pane only), to read strings such as stack traces, SQL or embedded JSON, which the EDN pane prints escaped:
+  - opens from a chip before each string that has a line break, labeled with its line count (e.g. `13 lines`), and from the path footer's "Show text" for any string (map keys and values, elements, the value of `#tag "..."`); not for `#uuid`, `#inst`, `#uri` or chars;
+  - the chip is how users find the viewer: the footer button only shows once the cursor is on a string. It is placed like the Console's "Show more" button for long strings, with that button's padding and hover color, but with the fold placeholder's background: the Console button has none until hovered and reads as plain text. It sits before the opening quote, so it stays visible when the string runs past the right edge. It is a widget, not text: copy, search, paths and form selection ignore it. Clicking it puts the cursor in the string and opens the viewer; it can't be reached with the keyboard (the footer button can);
+  - takes the lower half of the EDN pane, between the editor and the path footer (fixed, no splitter);
+  - a header row like the path footer: "Text", the string's path, its line count and a close button. No copy button: select and Cmd+C in the editor copies the string itself, unescaped;
+  - the string in a read-only editor: plain text, line numbers, line wrapping, control characters made visible, its own Cmd+F search; an empty string says so;
+  - while open, it follows the cursor to other strings; on anything else it keeps the last string, whose path the header shows;
+  - closes with its button, and with the body it belongs to (switching request or Payload/Response). Not remembered.
+  - The EDN text stays escaped. Not done instead: printing literal newlines in strings (valid EDN, but continuation lines lose the indentation and a long trace pushes the rest of the body away), showing the string's text in an inline widget in the EDN editor (Cmd+F can't search it, and selecting in it is unreliable), a hover tooltip (can't scroll, select or copy).
 - **Search:** Cmd+F (Ctrl+F) anywhere in the panel opens CodeMirror's search in a pane: the focused one, or else the one last focused, or else the first visible. With no pane open it focuses the URL filter box.
   - DevTools' own search bar never opens from the panel. It can't search an extension panel (it only hands the query to the extension's `onSearch`), and the Network panel has its own search instead.
   - Not covered: with focus outside the panel's page, e.g. right after clicking the Transit tab, the key never reaches the panel, so DevTools' bar opens and finds nothing. Focusing the panel on `onShown` would fix that, but it also fires when keyboard users arrow through DevTools' tabs and would pull focus out of the tab strip (verified 2026-10-06 in Chrome 154), so it isn't done.
@@ -267,7 +278,7 @@ In place since T18.
   - ordering.
 - **UI tests, automated (Puppeteer):**
   - run the panel UI in a normal Chrome tab with sample HAR data;
-  - click through it: selecting requests, switching views, the path footer;
+  - click through it: selecting requests, switching views, the path footer, the text viewer;
   - take screenshots in light and dark to check that things are visible and correct.
 
   This is the main UI test layer. It is reliable because no DevTools window is involved.
@@ -285,7 +296,7 @@ In place since T18.
 
 User-facing limitations are listed in [guide.md](guide.md#limitations) (the README shows the top three); keep them in sync when a decision here changes what users see.
 
-- **Clipboard (verified):** `navigator.clipboard.writeText` fails in the panel ("Document is not focused"); `document.execCommand('copy')` with a temporary textarea works. The path footer's Copy button tries the former and falls back to the latter. Native Cmd+C in the editor is unaffected.
+- **Clipboard (verified):** `navigator.clipboard.writeText` fails in the panel ("Document is not focused"); `document.execCommand('copy')` with a temporary textarea works. The path footer's "Copy path" button tries the former and falls back to the latter. Native Cmd+C in the editor is unaffected.
 - Bodies of old requests may be evicted by DevTools; show the "body no longer available" state.
 - **Shortcut forwarding (verified):** DevTools injects a `keydown` listener on the panel's `document` (bubble phase) that forwards its global shortcuts (Cmd+F, Esc, Cmd+Shift+P...) to DevTools, without checking whether the page already handled them. Keys an editor handles are therefore stopped at the editor (`src/ui/CodeView.tsx`), and Cmd+F elsewhere is caught on the document in the capture phase (`src/ui/App.tsx`). Every other shortcut still reaches DevTools.
 

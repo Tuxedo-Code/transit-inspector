@@ -27,7 +27,8 @@ Transit is a format for sending data between applications, most often Clojure an
 
 • Requests carrying Transit are clickable; other Fetch/XHR requests are grayed out. Transit is detected by content type, or by sniffing bodies served as application/json.
 • EDN, Transit, or both side by side. Fold, select, copy and search (Cmd+F / Ctrl+F) like in an editor.
-• The footer shows the get-in path of the value at the cursor, with a Copy button.
+• The footer shows the get-in path of the value at the cursor, with a "Copy path" button.
+• Show any string as plain text, with real line breaks instead of \n: handy for stack traces and SQL.
 • Follows the DevTools light and dark theme. Observe only: it never changes requests.
 
 Privacy: the extension makes no network requests of its own. No telemetry, analytics or third-party services, and its Content Security Policy blocks every connection from its pages. Captured traffic stays in DevTools' memory and is gone when you close DevTools; only the view mode and the request list's width are saved. It requests no permissions. Chrome still lists "Read and change all your data on all websites" for every DevTools extension, because DevTools extensions can run code in the page they inspect; Transit Inspector never does, and its build fails if that API appears in the code.

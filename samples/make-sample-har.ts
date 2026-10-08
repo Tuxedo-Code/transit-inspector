@@ -67,6 +67,23 @@ const search = tmap(
   transit.bigInt("123456789012345678901234567890"),
 );
 
+// A JVM stack trace as servers send it: line breaks and tabs that the EDN view shows escaped.
+const stacktrace = [
+  'clojure.lang.ExceptionInfo: Card declined: "insufficient_funds" {:payment/amount 10.00M, :payment/currency :EUR}',
+  "\tat shop.payments.gateway$charge_BANG_.invokeStatic(gateway.clj:88)",
+  "\tat shop.payments.gateway$charge_BANG_.invoke(gateway.clj:71)",
+  "\tat shop.payments.api$create_payment.invokeStatic(api.clj:42)",
+  "\tat shop.payments.api$create_payment.invoke(api.clj:35)",
+  "\tat reitit.ring$ring_handler$fn__1234.invoke(ring.cljc:329)",
+  "\tat ring.middleware.params$wrap_params$fn__5678.invoke(params.clj:67)",
+  "\tat clojure.lang.AFn.applyToHelper(AFn.java:154)",
+  "\tat java.base/java.lang.Thread.run(Thread.java:1583)",
+  "Caused by: java.net.SocketTimeoutException: Read timed out",
+  "\tat java.base/sun.nio.ch.NioSocketImpl.timedRead(NioSocketImpl.java:288)",
+  "\tat shop.payments.gateway$post_BANG_.invokeStatic(gateway.clj:120)",
+  "\t... 7 more",
+].join("\n");
+
 interface Spec {
   method: string;
   url: string;
@@ -142,6 +159,10 @@ const specs: Spec[] = [
         kw("internal"),
         kw("error/trace-id"),
         transit.uuid("0b6f6a4e-8c1d-4f3e-9a7b-2c5d8e1f0a3b"),
+        kw("error/message"),
+        'Card declined: "insufficient_funds"',
+        kw("error/stacktrace"),
+        stacktrace,
       ),
     ),
   },

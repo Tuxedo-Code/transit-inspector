@@ -1,12 +1,14 @@
 import type { Diagnostic } from "@codemirror/lint";
 import { useMemo, useState } from "preact/hooks";
-import { enclosingForm, formAt } from "../edn/print";
+import { enclosingForm, formAt, formatPath, lineCount, multiLineStrings, nodeAt, type PathNode } from "../edn/print";
 import type { RequestRow } from "../model";
 import { type BodyView, type Direction, type RawView, viewBody } from "./body-view";
-import { CodeView, type Forms } from "./CodeView";
+import { CodeView, type Forms, type StringChips } from "./CodeView";
+import { formatLines } from "./format";
 import { CloseIcon } from "./icons";
 import { PathFooter } from "./PathFooter";
 import type { ViewMode } from "./settings";
+import { TextViewer } from "./TextViewer";
 
 interface Props {
   row: RequestRow;
@@ -86,7 +88,10 @@ export function DetailView({ row, viewMode, onViewMode, onClose }: Props) {
 }
 
 function EdnPane({ view }: { view: BodyView }) {
-  const [offset, setOffset] = useState(-1);
+  /** The value at the cursor; null before the cursor was placed. */
+  const [node, setNode] = useState<PathNode | null>(null);
+  /** The string shown in the text viewer: the last one the cursor was on since it opened. Null while closed. */
+  const [shown, setShown] = useState<PathNode | null>(null);
   const { edn } = view;
   const diagnostics = useMemo<Diagnostic[]>(
     () =>
@@ -100,7 +105,22 @@ function EdnPane({ view }: { view: BodyView }) {
     const { index } = edn.printed;
     return { at: (offset) => formAt(index, offset), around: (from, to) => enclosingForm(index, from, to) };
   }, [edn]);
+  const chips = useMemo<StringChips | undefined>(() => {
+    if (edn.kind !== "edn") return undefined;
+    const { index } = edn.printed;
+    return {
+      at: multiLineStrings(index).map(({ from, text = "" }) => ({ from, label: formatLines(lineCount(text)) })),
+      open: (from) => setShown(nodeAt(index, from + 1)),
+    };
+  }, [edn]);
   if (edn.kind === "message") return <Message text={edn.text} error={edn.error} />;
+  const { index } = edn.printed;
+  const onCursor = (offset: number) => {
+    const at = nodeAt(index, offset);
+    setNode(at);
+    // While open, the viewer follows the cursor from string to string.
+    if (at?.text !== undefined) setShown((current) => current && at);
+  };
   return (
     <div class="pane">
       <CodeView
@@ -108,10 +128,12 @@ function EdnPane({ view }: { view: BodyView }) {
         language="edn"
         diagnostics={diagnostics}
         forms={forms}
-        onCursor={setOffset}
+        chips={chips}
+        onCursor={onCursor}
         label="Decoded EDN"
       />
-      <PathFooter index={edn.printed.index} offset={offset} />
+      {shown && <TextViewer path={formatPath(shown.path)} text={shown.text ?? ""} onClose={() => setShown(null)} />}
+      <PathFooter node={node} onShowText={shown ? undefined : () => setShown(node)} />
     </div>
   );
 }

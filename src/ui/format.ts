@@ -27,6 +27,11 @@ export function formatTime(ms: number): string {
   return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`;
 }
 
+/** A line count, e.g. "1 line", "1,204 lines". */
+export function formatLines(count: number): string {
+  return count === 1 ? "1 line" : `${count.toLocaleString("en-US")} lines`;
+}
+
 /** Case-insensitive substring match on the full URL. */
 export function matchesFilter(url: string, filter: string): boolean {
   const needle = filter.trim().toLowerCase();

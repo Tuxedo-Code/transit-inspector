@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeTransit } from "../transit/decode";
-import { enclosingForm, formAt, formatPath, pathAt, printEdn } from "./print";
+import { enclosingForm, formAt, formatPath, lineCount, multiLineStrings, nodeAt, pathAt, printEdn } from "./print";
 
 function printed(transit: string) {
   const result = decodeTransit(transit);
@@ -130,5 +130,52 @@ describe("pathAt", () => {
 
   it("prints non-scalar keys flat in paths", () => {
     expect(pathOf('["~#cmap",[["^ ","~:x",1],"one"]]', '"one"')).toBe("[{:x 1}]");
+  });
+});
+
+describe("nodeAt", () => {
+  /** The unescaped text of the string at the first occurrence of `needle`, or undefined if it isn't a string. */
+  function textAt(transit: string, needle: string): string | undefined {
+    const { text, index } = printed(transit);
+    const at = text.indexOf(needle);
+    if (at < 0) throw new Error(`${needle} not in ${text}`);
+    return nodeAt(index, at)?.text;
+  }
+
+  it("gives strings their unescaped text, wherever they are", () => {
+    const transit = String.raw`["^ ","trace","boom\n\tat \"x\"","~:tags",["~#set",["a\nb"]],"~:log",["~#list",["c\nd"]],"~:tagged",["~#app/x","e\nf"]]`;
+    expect(textAt(transit, '"trace"')).toBe("trace");
+    expect(textAt(transit, '"boom')).toBe('boom\n\tat "x"');
+    expect(textAt(transit, '"a\\nb"')).toBe("a\nb");
+    expect(textAt(transit, '"c\\nd"')).toBe("c\nd");
+    expect(textAt(transit, '"e\\nf"')).toBe("e\nf");
+  });
+
+  it("finds strings with line breaks, in text order", () => {
+    const transit = String.raw`["^ ","k\nkey",1,"one line","x","~:a",["~#set",["s\r\nt"]],"~:b",["~#list",["l\rm"]],"~:c",["~#app/x","e\nf"],"~:id","~u550e8400-e29b-41d4-a716-446655440000"]`;
+    const { text, index } = printed(transit);
+    expect(multiLineStrings(index).map((node) => text.slice(node.from, node.to))).toEqual([
+      String.raw`"k\nkey"`,
+      String.raw`"s\r\nt"`,
+      String.raw`"l\rm"`,
+      String.raw`"e\nf"`,
+    ]);
+  });
+
+  it("counts \\n, \\r\\n and \\r as line breaks", () => {
+    expect(lineCount("one")).toBe(1);
+    expect(lineCount("a\nb\r\nc\rd")).toBe(4);
+    expect(lineCount("trailing\n")).toBe(2);
+  });
+
+  it("gives other values no text, even when printed with quotes", () => {
+    const transit =
+      '["^ ","~:k","~u550e8400-e29b-41d4-a716-446655440000","~:i","~t2026-10-05T09:30:00.000Z","~:c","~cx"]';
+    expect(textAt(transit, ":k")).toBeUndefined();
+    expect(textAt(transit, "#uuid")).toBeUndefined();
+    expect(textAt(transit, '"550e')).toBeUndefined();
+    expect(textAt(transit, "#inst")).toBeUndefined();
+    expect(textAt(transit, "\\x")).toBeUndefined();
+    expect(textAt(transit, "{")).toBeUndefined();
   });
 });

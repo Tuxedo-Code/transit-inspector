@@ -448,6 +448,8 @@ button {
   flex: 1;
   flex-direction: column;
   min-width: 0;
+  /* Narrow panes drop the footer labels; see below. */
+  container-type: inline-size;
 }
 
 .panes.split .pane + .pane {
@@ -469,24 +471,76 @@ button {
   user-select: text;
 }
 
-/* Path footer under the EDN pane */
-.path-footer {
+/* Text viewer: the lower half of the EDN pane, showing a string as plain text */
+.text-viewer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--divider);
+}
+
+/* Path footer under the EDN pane, and the text viewer's header row in the same style */
+.path-footer,
+.text-viewer-header {
   display: flex;
   align-items: center;
   gap: 8px;
   height: 25px;
   padding: 0 8px;
-  border-top: 1px solid var(--divider);
   flex: none;
 }
 
-.path-footer .hint,
-.path-footer .label {
-  color: var(--fg-subtle);
+.path-footer {
+  border-top: 1px solid var(--divider);
 }
 
-.path-footer .path {
-  flex: 1;
+.text-viewer-header {
+  padding-right: 2px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.text-viewer-header .icon-button {
+  width: 20px;
+  height: 20px;
+}
+
+.path-footer .hint,
+.path-footer .label,
+.text-viewer-header .label {
+  color: var(--fg-subtle);
+  white-space: nowrap;
+}
+
+/* E.g. side by side with DevTools docked right: the path and the buttons need the room more than the labels. */
+@container (max-width: 320px) {
+  .path-footer .label,
+  .text-viewer-header .label {
+    display: none;
+  }
+
+  /* The path on one row, its buttons on the next. */
+  .path-footer {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    height: auto;
+    min-height: 25px;
+    padding: 2px 8px;
+  }
+
+  .path-footer .path {
+    flex-basis: 100%;
+  }
+
+  .path-footer .text-button {
+    padding: 0 6px;
+  }
+}
+
+.path-footer .path,
+.text-viewer-header .path {
+  /* Sized by its content, so in a narrow pane the path is cut short rather than squeezed out by the buttons. */
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -504,6 +558,7 @@ button {
   background: none;
   color: var(--primary);
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .text-button:hover {

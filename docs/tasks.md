@@ -352,6 +352,19 @@ From spec "Later". Not to be started until v1 is done:
   - `formAt` and `enclosingForm` in `src/edn/print.ts` work on the path index; collection nodes record their opening delimiter's length (`open`).
   - CodeMirror's own Cmd+I stopped 3,007 characters into the 3 MB sample (lazy parse), so the EDN pane binds its own ahead of the default keymap.
   - UI tests read CodeMirror's state through `.cm-content`'s `cmTile.root.view` (internal, test only) and click by document offset (`doubleClickEdn`).
+- [x] Text viewer for EDN strings (spec "Text viewer")
+  - Why: strings print escaped, so stack traces, SQL and embedded JSON read as one line of `\n`, `\t` and `\"`.
+  - How: a "13 lines" chip before each string with a line break, and "Show text" in the path footer for any string, open a plain-text editor under the EDN editor that follows the cursor; copying from it gives the unescaped string. The EDN text stays escaped.
+  - Done when: unit and e2e tests pass; screenshots in light and dark, wide and narrow (560px), EDN-only and side by side, look native; the viewer works in real DevTools.
+  - The viewer had a Copy button at first; removed at the user's request (select and Cmd+C does the same). The path footer's button is now "Copy path", so it can't be mistaken for copying the value.
+  - `src/ui/TextViewer.tsx`; string nodes in the path index carry their text (`PathNode.text`, `nodeAt` in `src/edn/print.ts`); `CodeView` has a plain `text` language. Sample data: `/api/payments` returns a stack trace and a message with quotes.
+  - Side by side at 560px the EDN pane is about 180px wide, which squeezed the path out of the footer. Panes are now CSS size containers. Below 320px the footer and viewer labels are hidden, and the footer wraps: the path on one row, its buttons on the next.
+  - The chips came after the footer button alone proved undiscoverable. `StringChips` in `CodeView.tsx` (a widget decoration), `multiLineStrings` in `print.ts`. DevTools' Console "Show more" is `button.expandable-inline-button` with its label in `::after { content: attr(data-text) }`, so it's invisible to `textContent` searches; the chip uses the same trick to stay out of the editor's text.
+  - A viewer that changes string updates its header before its editor (CodeView swaps documents in an effect), so tests wait for the editor's content.
+  - Verified: lint, typecheck, unit, UI and real-DevTools e2e (Chrome and Brave; the CSP check runs after the viewer test).
+  - Two flakes found while re-testing, both reproduced with every CPU core busy (`yes > /dev/null` per core):
+    - "Copy path" sometimes snapped back from "Copied": an effect reset the label on path change, and Preact runs effects after the next frame, so a click right after a cursor move was undone. `PathFooter` now remembers the copied path instead. Also a real bug for quick clicks.
+    - The in-flight test expected times as "x.xx s", but Node's timers fire up to 1 ms early (about 1 in 100), so a request held for `IN_FLIGHT_MS` can show "1000 ms". It now checks the time as a number.
 - [ ] Vertical scroll sync between panes
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)

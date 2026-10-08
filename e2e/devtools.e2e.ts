@@ -60,11 +60,29 @@ describe("the Transit panel in real DevTools", () => {
       `document.querySelector(".path-footer .path")?.textContent ?? ""`,
       (path) => path === "[:user/id]",
     );
+    expect(await panel.evaluate<string>(`document.querySelector(".path-footer button").textContent`)).toBe("Copy path");
     await panel.evaluate(`document.querySelector(".path-footer button").click()`);
     await panel.waitFor<string>(
       `document.querySelector(".path-footer button").textContent`,
       (label) => label === "Copied",
     );
+  });
+
+  it("shows a string as plain text", async () => {
+    await panel.evaluate(`(() => {
+      const { view } = document.querySelector(".cm-content").cmTile.root;
+      view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('"a"') + 1 } });
+    })()`);
+    await panel.evaluate(
+      `[...document.querySelectorAll(".path-footer button")].find((b) => b.textContent === "Show text").click()`,
+    );
+    const text = await panel.waitFor<string>(
+      `document.querySelector(".text-viewer .cm-content")?.textContent ?? ""`,
+      (content) => content !== "",
+    );
+    expect(text).toBe("a");
+    await panel.evaluate(`document.querySelector("button[aria-label='Close text']").click()`);
+    await panel.waitFor<boolean>(`!document.querySelector(".text-viewer")`, Boolean);
   });
 
   it("selects a whole form by double-clicking its bracket", async () => {
