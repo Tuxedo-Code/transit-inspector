@@ -2,7 +2,7 @@
 import type { Browser, Page } from "puppeteer";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { devtoolsUi, launchWithExtension, MOD, openPageWithTransitPanel, type Panel, pressShortcut } from "./devtools";
-import { startTestServer, type TestServer, TRANSIT_BODY } from "./test-server";
+import { IN_FLIGHT_MS, startTestServer, type TestServer, TRANSIT_BODY } from "./test-server";
 
 let server: TestServer;
 let browser: Browser;
@@ -180,7 +180,12 @@ describe("the Transit panel in real DevTools", () => {
     const rows = await panel.waitFor<string[][]>(cells, (rows) =>
       sameList(expected.map(String))(rows.map((r) => String(r.slice(0, 4)))),
     );
-    for (const [, , , , time] of rows) expect(time).toMatch(/^\d\.\d\d s$/);
+    // The final time, about IN_FLIGHT_MS, not the partial one read mid-flight. Not "x.xx s": Node's timers can fire
+    // up to 1 ms early, so the time can show as "1000 ms".
+    for (const [, , , , time = ""] of rows) {
+      const ms = time.endsWith(" ms") ? Number.parseFloat(time) : Number.parseFloat(time) * 1000;
+      expect(ms).toBeGreaterThan(IN_FLIGHT_MS / 2);
+    }
 
     await panel.evaluate(
       `[...document.querySelectorAll(".request-list tbody tr")].find((tr) => tr.cells[0].textContent === "slow").click()`,
