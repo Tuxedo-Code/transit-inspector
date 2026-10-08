@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import { formatPath, type PathNode, pathAt } from "../edn/print";
 import { copyText } from "./clipboard";
 
@@ -12,9 +12,10 @@ interface Props {
 export function PathFooter({ index, offset }: Props) {
   const steps = offset < 0 ? null : pathAt(index, offset);
   const path = steps ? formatPath(steps) : null;
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => setCopied(false), [path]);
+  // The path last copied rather than a flag reset by an effect: effects run after the next frame, so a reset could
+  // land after a quick click and undo its "Copied".
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
+  const copied = path !== null && path === copiedPath;
 
   return (
     <div class="path-footer">
@@ -26,7 +27,11 @@ export function PathFooter({ index, offset }: Props) {
           <code class="path" title={path}>
             {path}
           </code>
-          <button type="button" class="text-button" onClick={async () => setCopied(await copyText(path))}>
+          <button
+            type="button"
+            class="text-button"
+            onClick={async () => setCopiedPath((await copyText(path)) ? path : null)}
+          >
             {copied ? "Copied" : "Copy"}
           </button>
         </>
