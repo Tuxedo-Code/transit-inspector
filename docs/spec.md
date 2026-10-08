@@ -246,7 +246,7 @@ Users unzip the release zip and load it with "Load unpacked" (steps in the [READ
 - Settings required: "Allow GitHub Actions to create and approve pull requests" under Actions > General, first in the Tuxedo-Code organization settings (it overrides the repo), then in the repo. Without it, the `release` job can't open the release PR.
 - **Chrome Web Store:** the release zip has `manifest.json` at its root, a version Chrome accepts and the icons, so it is uploaded to the store as is.
   - `store/listing.md` holds every listing field and the privacy-practices answers; its claims must stay true, like those in `PRIVACY.md` and the README (see "Privacy").
-  - The screenshots and the promo tile in `store/` come from `node store/make-images.ts`: it replays `samples/basic.har` from a local server that Chrome reaches as `app.example.com`, and captures the real panel in an undocked DevTools window sized to the store's 1280x800. Run it on macOS after UI changes, since it renders with the system fonts.
+  - The screenshots and the promo tile in `store/` come from `node store/make-images.ts`: it replays `samples/basic.har` from a local server that Chrome reaches as `app.example.com`, and captures the real panel in an undocked 800x500 DevTools window, zoomed 1.6x to the store's 1280x800 so the text is readable. Each screenshot shows a different feature. The same run makes the README's screenshot, `docs/screenshot-{light,dark}.png`, at 2x in a window about as wide as GitHub shows it. Run it on a retina Mac after UI changes, since it renders with the system fonts and needs the extra pixels for the zoom.
   - Uploads are by hand in the developer dashboard for now (see "Later").
 
 ## Dependencies and supply chain

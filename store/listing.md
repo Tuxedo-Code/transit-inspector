@@ -2,7 +2,7 @@
 
 What to enter in the [developer dashboard](https://chrome.google.com/webstore/devconsole), field by field. Keep it in sync with the README and `PRIVACY.md`: every claim here must stay true of the shipped extension (spec "Privacy").
 
-The images in this folder come from `npm run build && node store/make-images.ts` (screenshots from the real extension in real DevTools, plus the promo tile). Regenerate them on macOS, where the fonts match DevTools there, when the UI changes.
+The images in this folder come from `npm run build && node store/make-images.ts` (screenshots from the real extension in real DevTools, plus the promo tile). Regenerate them on macOS with a retina display, where the fonts match DevTools there, when the UI changes. The screenshots are zoomed 1.6x so their text is readable in the store, and each one shows a different feature.
 
 ## Package
 
@@ -13,7 +13,7 @@ Upload `transit-inspector-<version>.zip` from the GitHub Release. The store take
 - **Category:** Developer Tools
 - **Language:** English
 - **Store icon:** `icons/128.png`
-- **Screenshots** (1280x800), in this order: `screenshot-1-edn.png`, `screenshot-2-side-by-side.png`, `screenshot-3-search.png`
+- **Screenshots** (1280x800), in this order: `screenshot-1-edn.png`, `screenshot-2-side-by-side.png`, `screenshot-3-string-text.png`, `screenshot-4-problems.png`, `screenshot-5-search.png`
 - **Small promo tile** (440x280): `promo-tile.png`
 - **Homepage URL:** https://github.com/Tuxedo-Code/transit-inspector
 - **Support URL:** https://github.com/Tuxedo-Code/transit-inspector/issues
@@ -27,9 +27,13 @@ Transit is a format for sending data between applications, most often Clojure an
 
 • Requests carrying Transit are clickable; other Fetch/XHR requests are grayed out. Transit is detected by content type, or by sniffing bodies served as application/json.
 • EDN, Transit, or both side by side. Fold, select, copy and search (Cmd+F / Ctrl+F) like in an editor.
+• Double-click a bracket to select a whole map, vector, list or set; Cmd+I / Ctrl+I expands the selection to the enclosing form.
 • The footer shows the get-in path of the value at the cursor, with a "Copy path" button.
 • Show any string as plain text, with real line breaks instead of \n: handy for stack traces and SQL.
+• Problems such as malformed Transit, unknown tags or lost precision are underlined, with the message on hover.
 • Follows the DevTools light and dark theme. Observe only: it never changes requests.
+
+It sees requests made while DevTools is open, and decodes Transit JSON (transit+msgpack is listed but not decoded).
 
 Privacy: the extension makes no network requests of its own. No telemetry, analytics or third-party services, and its Content Security Policy blocks every connection from its pages. Captured traffic stays in DevTools' memory and is gone when you close DevTools; only the view mode and the request list's width are saved. It requests no permissions. Chrome still lists "Read and change all your data on all websites" for every DevTools extension, because DevTools extensions can run code in the page they inspect; Transit Inspector never does, and its build fails if that API appears in the code.
 

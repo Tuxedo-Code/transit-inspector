@@ -9,9 +9,15 @@ import type { Page } from "puppeteer";
 import { launchWithExtension, MOD, openPageWithTransitPanel, type Panel, pressShortcut } from "../e2e/devtools.ts";
 
 const HOST = "app.example.com";
-// The Web Store takes screenshots of exactly 1280x800 (or 640x400).
-const WIDTH = 1280;
-const HEIGHT = 800;
+// The Web Store takes screenshots of exactly 1280x800 (or 640x400). At 1x, DevTools' 12px text is unreadable in the
+// store, so DevTools gets an 800x500 window that is captured zoomed to 1280x800. That needs a retina display:
+// the capture then downsamples real pixels instead of upscaling.
+const ZOOM = 1.6;
+const WIDTH = 1280 / ZOOM;
+const HEIGHT = 800 / ZOOM;
+const STORE = { width: WIDTH, height: HEIGHT, zoom: ZOOM };
+// The README screenshot, docs/screenshot-{light,dark}.png.
+const README = { width: 900, height: 300, zoom: 2 };
 
 const har: Har = JSON.parse(readFileSync(new URL("../samples/basic.har", import.meta.url), "utf8"));
 const calls = har.log.entries.filter((e) =>
@@ -84,29 +90,71 @@ try {
   // The sample's 404, 500 and failed requests log errors, which DevTools counts in a red badge at the top.
   await inspected.evaluate(() => console.clear());
   await sizeWindow(devtools, WIDTH, HEIGHT);
+  const dpr = await devtools.evaluate(() => devicePixelRatio);
+  const zoom = Math.max(STORE.zoom, README.zoom);
+  if (dpr < zoom) throw new Error(`Run this on a retina display: zooming ${zoom}x at devicePixelRatio ${dpr} blurs`);
 
-  // 1. EDN, with the cursor on a value and its path in the footer.
+  // Each screenshot shows a different feature.
+  // 1. EDN and the request list, with the cursor on a value and its path in the footer.
   await select(panel, "42");
   await setViewMode(panel, "EDN");
   await panel.evaluate(`document.querySelector(".cm-content").focus()`);
-  for (let i = 0; i < 23; i++) await devtools.keyboard.press("ArrowDown");
+  for (let i = 0; i < 15; i++) await devtools.keyboard.press("ArrowDown");
   await devtools.keyboard.press("End");
   await panel.waitFor<string>(`document.querySelector(".path-footer .path")?.textContent ?? ""`, (p) => p !== "");
   await shoot(devtools, "light", "screenshot-1-edn");
 
-  // 2. Side by side, on a response full of Transit's cache codes ("^0").
+  // 2. Side by side, on a response full of Transit's cache codes ("^0"), with the list hidden to make room.
   await select(panel, "feed?page=2&size=20");
   await setViewMode(panel, "Side by side");
+  await clickButton(panel, "Hide request list");
   await shoot(devtools, "dark", "screenshot-2-side-by-side");
+  await clickButton(panel, "Show request list");
+  await setViewMode(panel, "EDN");
 
-  // 3. Search.
+  // 3. A stack trace opened as plain text from its chip.
+  await select(panel, "payments");
+  await hover(devtools, panel, ".cm-string-chip");
+  await devtools.mouse.down();
+  await devtools.mouse.up();
+  await panel.waitFor<boolean>(`!!document.querySelector(".text-viewer .cm-content")`, Boolean);
+  await shoot(devtools, "light", "screenshot-3-string-text");
+  await clickButton(panel, "Close text");
+
+  // 4. A problem underlined, with its message on hover: an app-specific tag without a handler.
+  // The theme is set first: changing it closes the tooltip.
   await select(panel, "search?q=transit&limit=50");
+  await devtools.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
+  await hover(devtools, panel, ".cm-lintRange-warning");
+  await panel.waitFor<boolean>(`!!document.querySelector(".cm-tooltip-lint")`, Boolean);
+  await shoot(devtools, "dark", "screenshot-4-problems");
+  await devtools.mouse.move(0, 0);
+
+  // 5. Search.
+  await select(panel, "42");
   await panel.evaluate(`document.querySelector(".cm-content").focus()`);
   await pressShortcut(devtools, MOD, "f");
   await panel.waitFor<boolean>(`!!document.querySelector(".cm-search input[name=search]")`, Boolean);
-  await devtools.keyboard.type("search/");
+  await devtools.keyboard.type("order/");
   await devtools.keyboard.press("Enter");
-  await shoot(devtools, "light", "screenshot-3-search");
+  await shoot(devtools, "light", "screenshot-5-search");
+  await devtools.keyboard.press("Escape");
+
+  // The README's: EDN next to the raw Transit, with a path, in a window about as wide as GitHub shows it (so the
+  // text isn't shrunk), at 2x. The list is hidden to give both panes room. In both themes: the README picks the
+  // one matching the reader's. The search response is short enough for side by side and has the most Transit types.
+  await sizeWindow(devtools, README.width, README.height);
+  await select(panel, "search?q=transit&limit=50");
+  await setViewMode(panel, "Side by side");
+  await clickButton(panel, "Hide request list");
+  await panel.evaluate(`document.querySelector(".cm-content").focus()`);
+  for (let i = 0; i < 4; i++) await devtools.keyboard.press("ArrowDown");
+  await devtools.keyboard.press("End");
+  for (let i = 0; i < 3; i++) await devtools.keyboard.press("ArrowLeft");
+  await panel.waitFor<string>(`document.querySelector(".path-footer .path")?.textContent ?? ""`, (p) => p !== "");
+  for (const scheme of ["light", "dark"] as const) {
+    await shoot(devtools, scheme, new URL(`../docs/screenshot-${scheme}.png`, import.meta.url), README);
+  }
 
   await promoTile(await browser.newPage());
 } finally {
@@ -173,12 +221,43 @@ async function setViewMode(panel: Panel, label: string): Promise<void> {
   );
 }
 
-async function shoot(devtools: Page, scheme: "light" | "dark", name: string): Promise<void> {
+/** Clicks the panel's icon button labeled `label`. */
+async function clickButton(panel: Panel, label: string): Promise<void> {
+  await panel.evaluate(`document.querySelector(${JSON.stringify(`button[aria-label="${label}"]`)}).click()`);
+}
+
+/** Moves the real mouse over the middle of the panel element matching `selector`. */
+async function hover(devtools: Page, panel: Panel, selector: string): Promise<void> {
+  const frame = await devtools.evaluate(() => {
+    const find = (root: Document | ShadowRoot): HTMLIFrameElement | null => {
+      for (const el of root.querySelectorAll("iframe")) if (el.src.endsWith("/panel.html")) return el;
+      for (const el of root.querySelectorAll("*")) {
+        const found = el.shadowRoot && find(el.shadowRoot);
+        if (found) return found;
+      }
+      return null;
+    };
+    const { x, y } = find(document)?.getBoundingClientRect() ?? { x: 0, y: 0 };
+    return { x, y };
+  });
+  const box = await panel.evaluate<{ x: number; y: number; width: number; height: number }>(
+    `(({ x, y, width, height }) => ({ x, y, width, height }))(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect())`,
+  );
+  await devtools.mouse.move(frame.x + box.x + box.width / 2, frame.y + box.y + box.height / 2, { steps: 5 });
+}
+
+/** Saves the DevTools window, zoomed by `size.zoom`; `file` is a name in this folder or a URL. */
+async function shoot(
+  devtools: Page,
+  scheme: "light" | "dark",
+  file: string | URL,
+  { width, height, zoom } = STORE,
+): Promise<void> {
   await devtools.emulateMediaFeatures([{ name: "prefers-color-scheme", value: scheme }]);
   await new Promise((r) => setTimeout(r, 500));
-  const scale = 1 / (await devtools.evaluate(() => devicePixelRatio));
+  const scale = zoom / (await devtools.evaluate(() => devicePixelRatio));
   await devtools.screenshot({
-    path: new URL(`${name}.png`, import.meta.url).pathname,
-    clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT, scale },
+    path: (typeof file === "string" ? new URL(`${file}.png`, import.meta.url) : file).pathname,
+    clip: { x: 0, y: 0, width, height, scale },
   });
 }

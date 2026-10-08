@@ -225,7 +225,7 @@ Done when: all checks pass locally and in a Linux container that mirrors CI; the
 Notes:
 - Repo: github.com/Tuxedo-Code/transit-inspector. The first real CI run happens on the first push.
 - Linux e2e was verified in Docker (`node:24-bookworm`, amd64, `xvfb-run`, `--security-opt seccomp=unconfined` so Chrome's sandbox works), 3 runs in a row. It exposed a race: the page used to load after a fixed 1 s sleep, before DevTools recorded traffic. `e2e/devtools.ts` now uses `page.openDevTools()` and waits for the Transit tab first.
-- `docs/screenshot.png` is `e2e/screenshots/split-light.png` (2x). Refresh it by copying after `npm run test:e2e` when the UI changes.
+- The README screenshot (`docs/screenshot-{light,dark}.png`) now comes from `store/make-images.ts`, in real DevTools.
 - transit-js's Closure loader triggers rolldown `EVAL` warnings; `vite.config.ts` filters only those.
 
 ### [x] T16 Automated releases
@@ -380,6 +380,7 @@ From spec "Later". Not to be started until v1 is done:
   - Left, by the user: developer account ($5, 2-step verification; decide personal or Tuxedo-Code group publisher), then the first upload of the first release zip that has icons, filled in from `store/listing.md`.
   - Done when: the listing is live. Then add the store link to README "Install" (store first, zip as the alternative) and spec "Install", and move the CI upload job to its own task.
   - `make-images.ts` needs `--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable`: Chrome 154 blocks plain http to a public host name (`ERR_BLOCKED_BY_CLIENT`), even when `--host-resolver-rules` maps it to localhost.
+  - Screenshots are zoomed 1.6x (DevTools at 800x500) since 1x text was unreadable in the store. There are 5, one feature each: EDN with the path, side by side, a string as text, a lint tooltip, search. The lint tooltip closes when the theme changes, so set the theme before hovering. The string chip opens on mousedown, so use the real mouse rather than `.click()`.
 - [ ] Firefox support ("maybe"; see spec "Supported browsers"):
   - Check what Firefox's `devtools.network` HAR entries contain. If `_resourceType` is missing, find another way to tell Fetch/XHR apart, or list every request that carries Transit.
   - Check the panel, CodeMirror and the clipboard fallback in Firefox DevTools, in both themes.

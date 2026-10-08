@@ -4,7 +4,10 @@
 
 A **Transit** tab for Chrome and Brave DevTools, next to Network. It shows the page's [Transit](https://github.com/cognitect/transit-format) traffic decoded as readable [EDN](https://github.com/edn-format/edn), next to the raw Transit.
 
-![The Transit panel showing a response as EDN next to the raw Transit](docs/screenshot.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img src="docs/screenshot-light.png" alt="The Transit panel in DevTools showing a response as EDN next to the raw Transit">
+</picture>
 
 Transit packs keywords, sets, dates and non-string map keys into strings and arrays (`"~:user/id"`, `["^ ", ...]`), so the Network panel shows it as hard-to-read JSON. This panel shows the same data the way Clojure prints it.
 

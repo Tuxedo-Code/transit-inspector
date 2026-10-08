@@ -35,7 +35,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await page?.close();
   page = await browser.newPage();
-  // 2x like a Retina display, so screenshots show what users see (docs/screenshot.png comes from here).
+  // 2x like a Retina display, so screenshots show what users see.
   await page.setViewport({ width: 1300, height: 650, deviceScaleFactor: 2 });
   await page.goto(panelUrl);
   await page.evaluate(() => localStorage.clear());
