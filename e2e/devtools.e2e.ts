@@ -86,22 +86,23 @@ describe("the Transit panel in real DevTools", () => {
     );
   });
 
-  it("shows a string as plain text", async () => {
+  it("opens a string with Enter, and resizes its viewer", async () => {
     await panel.evaluate(`(() => {
       const { view } = document.querySelector(".cm-content").cmTile.root;
       view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('"a"') + 1 } });
+      view.focus();
     })()`);
-    await panel.evaluate(
-      `[...document.querySelectorAll(".path-footer button")].find((b) => b.textContent === "Show text").click()`,
-    );
+    // Keys reach the panel only once its frame has focus.
+    await panel.waitFor<boolean>(`document.hasFocus() && !!document.activeElement?.matches(".cm-content")`, Boolean);
+    await pressShortcut(devtools, "Enter");
     const text = await panel.waitFor<string>(
-      `document.querySelector(".text-viewer .cm-content")?.textContent ?? ""`,
+      `document.querySelector(".string-viewer .cm-content")?.textContent ?? ""`,
       (content) => content !== "",
     );
     expect(text).toBe("a");
 
     // Resizes by dragging its top border with the real mouse.
-    const viewerHeight = `document.querySelector(".text-viewer").getBoundingClientRect().height`;
+    const viewerHeight = `document.querySelector(".string-viewer").getBoundingClientRect().height`;
     const before = await panel.evaluate<number>(viewerHeight);
     const splitter = await panel.evaluate<{ x: number; y: number }>(`(() => {
       const { x, y, width, height } = document.querySelector(".splitter[aria-orientation=horizontal]").getBoundingClientRect();
@@ -115,8 +116,8 @@ describe("the Transit panel in real DevTools", () => {
     await devtools.mouse.up();
     await panel.waitFor<number>(viewerHeight, (height) => Math.abs(height - (before + 20)) <= 1);
 
-    await panel.evaluate(`document.querySelector("button[aria-label='Close text']").click()`);
-    await panel.waitFor<boolean>(`!document.querySelector(".text-viewer")`, Boolean);
+    await panel.evaluate(`document.querySelector("button[aria-label='Close string']").click()`);
+    await panel.waitFor<boolean>(`!document.querySelector(".string-viewer")`, Boolean);
   });
 
   it("selects a whole form by double-clicking its bracket", async () => {

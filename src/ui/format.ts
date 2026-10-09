@@ -32,6 +32,11 @@ export function formatLines(count: number): string {
   return count === 1 ? "1 line" : `${count.toLocaleString("en-US")} lines`;
 }
 
+/** A character count, e.g. "1,204 chars". */
+export function formatChars(count: number): string {
+  return count === 1 ? "1 char" : `${count.toLocaleString("en-US")} chars`;
+}
+
 /** Case-insensitive substring match on the full URL. */
 export function matchesFilter(url: string, filter: string): boolean {
   const needle = filter.trim().toLowerCase();

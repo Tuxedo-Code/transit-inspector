@@ -112,14 +112,14 @@ try {
   await clickButton(panel, "Show request list");
   await setViewMode(panel, "EDN");
 
-  // 3. A stack trace opened as plain text from its chip.
-  await select(panel, "payments");
-  await hover(devtools, panel, ".cm-string-chip");
+  // 3. A string holding EDN, opened pretty-printed from its chip, next to the chips of a JSON and a long string.
+  await select(panel, "17");
+  await hover(devtools, panel, ".cm-string-chip[data-text=EDN]");
   await devtools.mouse.down();
   await devtools.mouse.up();
-  await panel.waitFor<boolean>(`!!document.querySelector(".text-viewer .cm-content")`, Boolean);
-  await shoot(devtools, "light", "screenshot-3-string-text");
-  await clickButton(panel, "Close text");
+  await panel.waitFor<boolean>(`!!document.querySelector(".string-viewer .cm-content")`, Boolean);
+  await shoot(devtools, "light", "screenshot-3-string");
+  await clickButton(panel, "Close string");
 
   // 4. A problem underlined, with its message on hover: an app-specific tag without a handler.
   // The theme is set first: changing it closes the tooltip.

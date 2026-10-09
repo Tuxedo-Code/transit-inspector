@@ -13,7 +13,7 @@ Upload `transit-inspector-<version>.zip` from the GitHub Release. The store take
 - **Category:** Developer Tools
 - **Language:** English
 - **Store icon:** `icons/128.png`
-- **Screenshots** (1280x800), in this order: `screenshot-1-edn.png`, `screenshot-2-side-by-side.png`, `screenshot-3-string-text.png`, `screenshot-4-problems.png`, `screenshot-5-search.png`
+- **Screenshots** (1280x800), in this order: `screenshot-1-edn.png`, `screenshot-2-side-by-side.png`, `screenshot-3-string.png`, `screenshot-4-problems.png`, `screenshot-5-search.png`
 - **Small promo tile** (440x280): `promo-tile.png`
 - **Homepage URL:** https://github.com/Tuxedo-Code/transit-inspector
 - **Support URL:** https://github.com/Tuxedo-Code/transit-inspector/issues
@@ -29,7 +29,7 @@ Transit is a format for sending data between applications, most often Clojure an
 • EDN, Transit, or both side by side. Fold, select, copy and search (Cmd+F / Ctrl+F) like in an editor.
 • Double-click a bracket to select a whole map, vector, list or set; Cmd+I / Ctrl+I expands the selection to the enclosing form.
 • The footer shows the get-in path of the value at the cursor, with a "Copy path" button.
-• Show any string as plain text, with real line breaks instead of \n: handy for stack traces and SQL.
+• Read long strings without escapes: stack traces and SQL with real line breaks instead of \n, and EDN or JSON stored in a string pretty-printed.
 • Problems such as malformed Transit, unknown tags or lost precision are underlined, with the message on hover.
 • Follows the DevTools light and dark theme. Observe only: it never changes requests.
 

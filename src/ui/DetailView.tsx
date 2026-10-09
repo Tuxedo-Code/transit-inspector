@@ -1,20 +1,20 @@
 import type { Diagnostic } from "@codemirror/lint";
 import { useMemo, useState } from "preact/hooks";
-import { enclosingForm, formAt, formatPath, lineCount, multiLineStrings, nodeAt, type PathNode } from "../edn/print";
+import { nodeAt, type PathNode, strings } from "../edn/print";
 import type { RequestRow } from "../model";
 import { type BodyView, type Direction, type RawView, viewBody } from "./body-view";
-import { CodeView, type Forms, type StringChips } from "./CodeView";
-import { formatLines } from "./format";
+import { CodeView, formsOf, type StringChips } from "./CodeView";
 import { CloseIcon } from "./icons";
 import { PathFooter } from "./PathFooter";
+import { StringViewer } from "./StringViewer";
 import type { ViewMode } from "./settings";
-import { TextViewer } from "./TextViewer";
+import { chipLabel } from "./string-view";
 
 interface Props {
   row: RequestRow;
   viewMode: ViewMode;
   onViewMode: (mode: ViewMode) => void;
-  /** The text viewer's height once dragged; null for its default, half the pane. */
+  /** The string viewer's height once dragged; null for its default, half the pane. */
   viewerHeight: number | null;
   onViewerHeight: (height: number) => void;
   onClose: () => void;
@@ -108,7 +108,7 @@ function EdnPane({
 }) {
   /** The value at the cursor; null before the cursor was placed. */
   const [node, setNode] = useState<PathNode | null>(null);
-  /** The string shown in the text viewer: the last one the cursor was on since it opened. Null while closed. */
+  /** The string shown in the string viewer: the last one the cursor was on since it opened. Null while closed. */
   const [shown, setShown] = useState<PathNode | null>(null);
   const { edn } = view;
   const diagnostics = useMemo<Diagnostic[]>(
@@ -118,17 +118,21 @@ function EdnPane({
         : [],
     [edn],
   );
-  const forms = useMemo<Forms | undefined>(() => {
-    if (edn.kind !== "edn") return undefined;
-    const { index } = edn.printed;
-    return { at: (offset) => formAt(index, offset), around: (from, to) => enclosingForm(index, from, to) };
-  }, [edn]);
+  const forms = useMemo(() => (edn.kind === "edn" ? formsOf(edn.printed.index) : undefined), [edn]);
   const chips = useMemo<StringChips | undefined>(() => {
     if (edn.kind !== "edn") return undefined;
     const { index } = edn.printed;
     return {
-      at: multiLineStrings(index).map(({ from, text = "" }) => ({ from, label: formatLines(lineCount(text)) })),
-      open: (from) => setShown(nodeAt(index, from + 1)),
+      at: strings(index).flatMap((string) => {
+        const label = chipLabel(string);
+        return label ? [{ from: string.from, label }] : [];
+      }),
+      open: (offset) => {
+        const at = nodeAt(index, offset);
+        if (at?.text === undefined) return false;
+        setShown(at);
+        return true;
+      },
     };
   }, [edn]);
   if (edn.kind === "message") return <Message text={edn.text} error={edn.error} />;
@@ -151,15 +155,9 @@ function EdnPane({
         label="Decoded EDN"
       />
       {shown && (
-        <TextViewer
-          path={formatPath(shown.path)}
-          text={shown.text ?? ""}
-          height={viewerHeight}
-          onHeight={onViewerHeight}
-          onClose={() => setShown(null)}
-        />
+        <StringViewer node={shown} height={viewerHeight} onHeight={onViewerHeight} onClose={() => setShown(null)} />
       )}
-      <PathFooter node={node} onShowText={shown ? undefined : () => setShown(node)} />
+      <PathFooter node={node} />
     </div>
   );
 }

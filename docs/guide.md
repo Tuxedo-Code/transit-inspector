@@ -20,7 +20,12 @@ Shortcuts are written for macOS. On Windows and Linux, use Ctrl instead of Cmd.
 
 **Path footer.** The footer under the EDN view shows the `get-in` path of the value at the cursor, such as `[:user :orders 0 :id]`, with a "Copy path" button.
 
-**Read a string.** The EDN view prints strings escaped, so a stack trace or SQL query shows as one long line with `\n` and `\t`. Click the gray chip before such a string, labeled with its line count (like `13 lines`), or put the cursor on any string and click "Show text" in the footer: the string opens as plain text under the EDN view, with real line breaks and tabs. Select and copy there to get the string itself, without escapes. While it is open, it follows the cursor to other strings. Drag its top border to give it more room; it keeps that height until DevTools closes. Cmd+F searches it too.
+**Read a string.** The EDN view prints strings escaped, so a stack trace or SQL query shows as one long line with `\n` and `\t`, and EDN or JSON stored in a string is one line full of `\"`. A gray chip before such a string opens it under the EDN view:
+
+- `13 lines` (a string with line breaks) and `719 chars` (a single line over 120 characters): as plain text, with real line breaks and tabs, wrapped to the pane;
+- `EDN` and `JSON` (a string holding one map, vector, list or set): pretty-printed and highlighted, numbers exactly as written. EDN can be folded, and selected form by form like the EDN view.
+
+With the cursor on any string, Enter opens it too. Select and copy in the viewer to get the string without escapes (EDN and JSON as pretty-printed). While it is open, it follows the cursor to other strings. Drag its top border to give it more room; it keeps that height until DevTools closes. Cmd+F searches it too.
 
 **Layout.** Drag the border between the request list and the detail view to resize them. The width is remembered. The "Hide request list" button in the toolbar gives the detail view the full width.
 
@@ -49,6 +54,7 @@ Shortcuts are written for macOS. On Windows and Linux, use Ctrl instead of Cmd.
 - Integers above 2^53 are exact when sent the Transit way (`"~i..."`). If a server sends them as plain JSON numbers, they may already have lost precision; such values are underlined with a warning.
 - Map entries and set elements are shown in the order they were sent, not in Clojure's own (hash) order.
 - App-specific Transit tags have no handlers here: they show as `#tag value` with a warning underline. URIs show as `#uri "..."`, which standard EDN readers don't know.
+- EDN or JSON in a string is shown pretty-printed only: comments, `#_` and the original layout are dropped. The EDN view still shows the string as sent, escaped. A string counts as EDN or JSON only when all of it is a single map, vector, list or set; anything that doesn't read cleanly, such as Clojure's `#"regex"` or `#'var`, shows as plain text. Strings inside the pretty-printed value stay escaped.
 - Paths in the footer use list positions too, but `get-in` can't index into lists, so such a path won't work as-is in Clojure.
 - The URL filter is a plain case-insensitive substring match: no wildcards or regular expressions.
 - Bodies are decoded when you open them. A 3 MB response takes about 100 ms; much larger ones may briefly freeze the panel.

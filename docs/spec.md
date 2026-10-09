@@ -2,7 +2,7 @@
 
 Source of truth for product and architecture decisions. If an implementation needs to deviate, update this file in the same change and say why.
 
-Last updated: 2026-10-07
+Last updated: 2026-10-09
 
 ## Goal
 
@@ -114,7 +114,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - Decode with the official `transit-js` library (JSON format only).
 - Print our own EDN text from the decoded value, pretty-printed with indentation:
   - keywords (incl. namespaced) and symbols;
-  - strings (escaped; the text viewer shows them unescaped), chars;
+  - strings (escaped; the string viewer shows them unescaped), chars;
   - integers, including those above 2^53, shown exactly with no rounding;
   - floats, big integers, big decimals;
   - `nil`, `true`, `false`;
@@ -182,18 +182,21 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
   - a footer under the EDN pane shows the EDN path of the value at the cursor or selection, as a `get-in` vector (e.g. `[:user :orders 0 :id]`), from the path index;
   - it updates as the cursor moves and is empty when the cursor is not on a value;
   - a small "Copy path" button next to the path copies it;
-  - with the cursor on a string, a "Show text" button opens the text viewer (below);
   - no keyboard shortcut and no toolbar button;
-  - in a pane narrower than 320px (side by side, DevTools docked to the side) the labels are hidden ("Path"; in the text viewer "Text" and the line count), and the footer puts the path on one row and its buttons on the next.
-- **Text viewer** (EDN pane only), to read strings such as stack traces, SQL or embedded JSON, which the EDN pane prints escaped:
-  - opens from a chip before each string that has a line break, labeled with its line count (e.g. `13 lines`), and from the path footer's "Show text" for any string (map keys and values, elements, the value of `#tag "..."`); not for `#uuid`, `#inst`, `#uri` or chars;
-  - the chip is how users find the viewer: the footer button only shows once the cursor is on a string. It is placed like the Console's "Show more" button for long strings, with that button's padding and hover color, but with the fold placeholder's background: the Console button has none until hovered and reads as plain text. It sits before the opening quote, so it stays visible when the string runs past the right edge. It is a widget, not text: copy, search, paths and form selection ignore it. Clicking it puts the cursor in the string and opens the viewer; it can't be reached with the keyboard (the footer button can);
+  - in a pane narrower than 320px (side by side, DevTools docked to the side) the labels are hidden ("Path"; in the string viewer its kind and the line count), and the footer puts the path on one row and its button on the next.
+- **String viewer** (EDN pane only), to read strings the EDN pane prints escaped: stack traces, SQL, and EDN or JSON stored in a string:
+  - **What it shows**, decided per string (`src/ui/string-view.ts`):
+    - EDN, pretty-printed by the EDN printer, when all of the string (ignoring surrounding whitespace) reads as one map, vector, list or set, possibly tagged (`#error {...}`). Read by our own EDN reader (`src/edn/read.ts`): EDN plus what Clojure prints for data (ratios, `##Inf`, hex integers, `#:ns{}` maps); reader-only syntax (`#"regex"`, `#'var`, `@`, `^`) fails the read. Floats keep their text (`1.0`), integers their digits;
+    - JSON, re-indented by 2 spaces token by token, so numbers and strings keep the text they were sent with (no rounding of big integers), when the string parses as a JSON object or array. JSON is tried before EDN: some JSON also reads as EDN, wrongly (`{"a":true}` as `{"a" :true}`);
+    - otherwise plain text. Also when pretty-printing would show exactly what the EDN pane shows (`[1 2]`), so it gets no `EDN` chip;
+  - **Opens** from a chip before the string, or with Enter with the cursor on any string (map keys and values, elements, the value of `#tag "..."`; not `#uuid`, `#inst`, `#uri` or chars). Chips are labeled `EDN`, `JSON`, the line count for a string with a line break (e.g. `13 lines`), or the length for a single-line string over 120 characters (e.g. `719 chars`, about where a string runs past the edge of a pane); other strings get none. A "Show text" button in the path footer used to open any string; it was dropped because the chips cover every string worth opening, and Enter replaces its keyboard access;
+  - the chip is placed like the Console's "Show more" button for long strings, with that button's padding and hover color, but with the fold placeholder's background: the Console button has none until hovered and reads as plain text. It sits before the opening quote, so it stays visible when the string runs past the right edge. It is a widget, not text: copy, search, paths and form selection ignore it. Clicking it puts the cursor in the string and opens the viewer; it can't be reached with the keyboard (Enter can);
   - takes the lower half of the EDN pane, between the editor and the path footer, until resized: its top border is a splitter like DevTools' drawer resizer (an invisible 6px strip centered on it, `ns-resize` cursor, no keyboard control; measured in Chrome 154). The viewer and the editor keep at least 50px each; if the panel gets too short, the viewer shrinks and grows back when there is room again. The height applies to every string and request until DevTools closes, and is not stored;
-  - a header row like the path footer: "Text", the string's path, its line count and a close button. No copy button: select and Cmd+C in the editor copies the string itself, unescaped;
-  - the string in a read-only editor: plain text, line numbers, line wrapping, control characters made visible, its own Cmd+F search; an empty string says so;
+  - a header row like the path footer: the kind (`Text`, `EDN`, `JSON`), the string's path, the shown text's line count and a close button. No copy button: select and Cmd+C in the editor copies what it shows: the string unescaped, or EDN and JSON as pretty-printed;
+  - a read-only editor with line numbers and its own Cmd+F search. Plain text wraps and shows control characters; EDN has the EDN pane's highlighting, folding and form selection, JSON its highlighting, and neither wraps. An empty string says so;
   - while open, it follows the cursor to other strings; on anything else it keeps the last string, whose path the header shows;
   - closes with its button, and with the body it belongs to (switching request or Payload/Response). Not remembered.
-  - The EDN text stays escaped. Not done instead: printing literal newlines in strings (valid EDN, but continuation lines lose the indentation and a long trace pushes the rest of the body away), showing the string's text in an inline widget in the EDN editor (Cmd+F can't search it, and selecting in it is unreliable), a hover tooltip (can't scroll, select or copy).
+  - The EDN text stays escaped. Not done instead: printing literal newlines in strings (valid EDN, but continuation lines lose the indentation and a long trace pushes the rest of the body away), showing the string's text in an inline widget in the EDN editor (Cmd+F can't search it, and selecting in it is unreliable), a hover tooltip (can't scroll, select or copy), a switch between pretty-printed and original text (the EDN pane already shows the original; decided with the user), chips inside the viewer (strings nested in pretty-printed EDN or JSON stay escaped).
 - **Search:** Cmd+F (Ctrl+F) anywhere in the panel opens CodeMirror's search in a pane: the focused one, or else the one last focused, or else the first visible. With no pane open it focuses the URL filter box.
   - DevTools' own search bar never opens from the panel. It can't search an extension panel (it only hands the query to the extension's `onSearch`), and the Network panel has its own search instead.
   - Not covered: with focus outside the panel's page, e.g. right after clicking the Transit tab, the key never reaches the panel, so DevTools' bar opens and finds nothing. Focusing the panel on `onShown` would fix that, but it also fires when keyboard users arrow through DevTools' tabs and would pull focus out of the tab strip (verified 2026-10-06 in Chrome 154), so it isn't done.
@@ -278,7 +281,7 @@ In place since T18.
   - ordering.
 - **UI tests, automated (Puppeteer):**
   - run the panel UI in a normal Chrome tab with sample HAR data;
-  - click through it: selecting requests, switching views, the path footer, the text viewer;
+  - click through it: selecting requests, switching views, the path footer, the string viewer;
   - take screenshots in light and dark to check that things are visible and correct.
 
   This is the main UI test layer. It is reliable because no DevTools window is involved.

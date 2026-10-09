@@ -15,7 +15,8 @@ export type EdnNode = Base &
     | { type: "boolean"; value: boolean }
     /** Exact digits, never rounded. */
     | { type: "integer"; value: string }
-    | { type: "float"; value: number }
+    /** `text` is the number as written, when read from EDN text, so `1.0` doesn't print as `1`. */
+    | { type: "float"; value: number; text?: string }
     | { type: "bigint"; value: string }
     | { type: "bigdec"; value: string }
     | { type: "ratio"; numerator: string; denominator: string }

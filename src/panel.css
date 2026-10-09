@@ -239,7 +239,7 @@ button {
   touch-action: none;
 }
 
-/* Like DevTools' drawer resizer: the same strip lying down, centered on the text viewer's top border. */
+/* Like DevTools' drawer resizer: the same strip lying down, centered on the string viewer's top border. */
 .splitter[aria-orientation="horizontal"] {
   width: auto;
   height: 6px;
@@ -480,10 +480,10 @@ button {
 }
 
 /*
- * Text viewer: the lower half of the EDN pane, showing a string as plain text, until resized (its flex basis is then
- * set inline). The minimum heights are VIEWER_MIN_HEIGHT and EDITOR_MIN_HEIGHT in TextViewer.tsx.
+ * String viewer: the lower half of the EDN pane, showing a string without escapes, until resized (its flex basis is
+ * then set inline). The minimum heights are VIEWER_MIN_HEIGHT and EDITOR_MIN_HEIGHT in StringViewer.tsx.
  */
-.text-viewer {
+.string-viewer {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -491,13 +491,13 @@ button {
   border-top: 1px solid var(--divider);
 }
 
-.pane:has(> .text-viewer) > .code-view {
+.pane:has(> .string-viewer) > .code-view {
   min-height: 50px;
 }
 
-/* Path footer under the EDN pane, and the text viewer's header row in the same style */
+/* Path footer under the EDN pane, and the string viewer's header row in the same style */
 .path-footer,
-.text-viewer-header {
+.string-viewer-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -510,31 +510,31 @@ button {
   border-top: 1px solid var(--divider);
 }
 
-.text-viewer-header {
+.string-viewer-header {
   padding-right: 2px;
   border-bottom: 1px solid var(--divider);
 }
 
-.text-viewer-header .icon-button {
+.string-viewer-header .icon-button {
   width: 20px;
   height: 20px;
 }
 
 .path-footer .hint,
 .path-footer .label,
-.text-viewer-header .label {
+.string-viewer-header .label {
   color: var(--fg-subtle);
   white-space: nowrap;
 }
 
-/* E.g. side by side with DevTools docked right: the path and the buttons need the room more than the labels. */
+/* E.g. side by side with DevTools docked right: the path and the button need the room more than the labels. */
 @container (max-width: 320px) {
   .path-footer .label,
-  .text-viewer-header .label {
+  .string-viewer-header .label {
     display: none;
   }
 
-  /* The path on one row, its buttons on the next. */
+  /* The path on one row, its button on the next. */
   .path-footer {
     flex-wrap: wrap;
     row-gap: 2px;
@@ -553,7 +553,7 @@ button {
 }
 
 .path-footer .path,
-.text-viewer-header .path {
+.string-viewer-header .path {
   /* Sized by its content, so in a narrow pane the path is cut short rather than squeezed out by the buttons. */
   flex: 1 1 auto;
   min-width: 0;

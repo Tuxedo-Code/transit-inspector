@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeTransit } from "../transit/decode";
-import { enclosingForm, formAt, formatPath, lineCount, multiLineStrings, nodeAt, pathAt, printEdn } from "./print";
+import { enclosingForm, formAt, formatPath, lineCount, nodeAt, pathAt, printEdn, strings } from "./print";
 
 function printed(transit: string) {
   const result = decodeTransit(transit);
@@ -151,11 +151,13 @@ describe("nodeAt", () => {
     expect(textAt(transit, '"e\\nf"')).toBe("e\nf");
   });
 
-  it("finds strings with line breaks, in text order", () => {
+  it("finds every string in text order, and nothing else printed with quotes", () => {
     const transit = String.raw`["^ ","k\nkey",1,"one line","x","~:a",["~#set",["s\r\nt"]],"~:b",["~#list",["l\rm"]],"~:c",["~#app/x","e\nf"],"~:id","~u550e8400-e29b-41d4-a716-446655440000"]`;
     const { text, index } = printed(transit);
-    expect(multiLineStrings(index).map((node) => text.slice(node.from, node.to))).toEqual([
+    expect(strings(index).map((node) => text.slice(node.from, node.to))).toEqual([
       String.raw`"k\nkey"`,
+      '"one line"',
+      '"x"',
       String.raw`"s\r\nt"`,
       String.raw`"l\rm"`,
       String.raw`"e\nf"`,

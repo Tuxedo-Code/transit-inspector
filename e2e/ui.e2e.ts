@@ -103,11 +103,11 @@ async function dragViewerSplitter(y: number): Promise<void> {
   await page.mouse.up();
 }
 
-/** The heights of the EDN editor and the text viewer under it, and the viewer's top. */
+/** The heights of the EDN editor and the string viewer under it, and the viewer's top. */
 const viewerBoxes = () =>
   page.$eval(".pane", (pane) => {
     const editor = (pane.querySelector(":scope > .code-view") as HTMLElement).getBoundingClientRect();
-    const viewer = (pane.querySelector(".text-viewer") as HTMLElement).getBoundingClientRect();
+    const viewer = (pane.querySelector(".string-viewer") as HTMLElement).getBoundingClientRect();
     return { editor: editor.height, viewer: viewer.height, top: viewer.top };
   });
 
@@ -121,6 +121,28 @@ const ednSelection = () =>
     const { from, to } = state.selection.main;
     return { from, to, text: state.sliceDoc(from, to), doc: state.doc.toString(), length: state.doc.length };
   });
+
+/** The string viewer's header texts (kind, path, line count) and its document. */
+const viewer = () =>
+  page.$eval(".string-viewer", (viewer) => {
+    const content = viewer.querySelector(".cm-content") as unknown as ViewDom;
+    return {
+      header: [...viewer.querySelectorAll(".string-viewer-header .path, .string-viewer-header .label")].map(
+        (element) => element.textContent,
+      ),
+      text: content.cmTile.root.view.state.doc.toString(),
+    };
+  });
+
+/** The EDN pane's string chips: each label and the text right after it. */
+const chips = () =>
+  page.$$eval(".pane .cm-string-chip", (chips) =>
+    chips.map((chip) => {
+      const { view } = (chip.closest(".cm-content") as unknown as ViewDom).cmTile.root;
+      const at = view.posAtDOM(chip);
+      return { label: (chip as HTMLElement).dataset.text, next: view.state.sliceDoc(at, at + 11) };
+    }),
+  );
 
 /** Double-clicks the character at `offset` in the EDN pane, on its left or right half. */
 async function doubleClickEdn(offset: number, half: "left" | "right"): Promise<void> {
@@ -340,37 +362,32 @@ describe("detail view", () => {
     await page.waitForFunction(() => document.querySelector(".path-footer button")?.textContent === "Copied");
   });
 
-  it("shows a string as plain text, following the cursor from string to string", async () => {
-    const showText = ".path-footer button::-p-text(Show text)";
-    const viewer = () =>
-      page.$eval(".text-viewer", (viewer) => {
-        const content = viewer.querySelector(".cm-content") as unknown as ViewDom;
-        return {
-          header: [...viewer.querySelectorAll(".text-viewer-header .path, .text-viewer-header .label")].map(
-            (element) => element.textContent,
-          ),
-          text: content.cmTile.root.view.state.doc.toString(),
-        };
-      });
+  it("opens a string with Enter, as plain text, and follows the cursor from string to string", async () => {
     await selectRow("payments");
+    // Nothing on anything but a string, and no button in the footer: chips and Enter open strings.
+    await clickInEdn(":error/code");
+    await page.keyboard.press("Enter");
+    expect(await page.$(".string-viewer")).toBeNull();
+    expect(await page.$$eval(".path-footer button", (buttons) => buttons.map((button) => button.textContent))).toEqual([
+      "Copy path",
+    ]);
     await clickInEdn("clojure.lang.ExceptionInfo");
-    await page.click(showText);
-    await page.waitForSelector(".text-viewer .cm-content");
+    await page.keyboard.press("Enter");
+    await page.waitForSelector(".string-viewer .cm-content");
     const trace = await viewer();
     expect(trace.header).toEqual(["Text", "[:error/stacktrace]", "13 lines"]);
     expect(trace.text.split("\n").slice(0, 2)).toEqual([
       'clojure.lang.ExceptionInfo: Card declined: "insufficient_funds" {:payment/amount 10.00M, :payment/currency :EUR}',
       "\tat shop.payments.gateway$charge_BANG_.invokeStatic(gateway.clj:88)",
     ]);
-    expect(await page.$(showText)).toBeNull();
 
     // Select all and copy gives the string itself, not its escaped EDN form.
     const mod = process.platform === "darwin" ? "Meta" : "Control";
-    await page.click(".text-viewer .cm-content");
+    await page.click(".string-viewer .cm-content");
     await page.keyboard.down(mod);
     await page.keyboard.press("a");
     await page.keyboard.up(mod);
-    const copied = await page.$eval(".text-viewer .cm-content", (content) => {
+    const copied = await page.$eval(".string-viewer .cm-content", (content) => {
       const clipboardData = new DataTransfer();
       content.dispatchEvent(new ClipboardEvent("copy", { clipboardData, bubbles: true, cancelable: true }));
       return clipboardData.getData("text/plain");
@@ -380,7 +397,7 @@ describe("detail view", () => {
     // Follows the cursor onto another string, and keeps it when the cursor leaves strings.
     await clickInEdn("Card declined");
     // The editor gets its new document in an effect, after the header.
-    await page.waitForFunction(() => document.querySelector(".text-viewer .cm-content")?.textContent?.length === 35);
+    await page.waitForFunction(() => document.querySelector(".string-viewer .cm-content")?.textContent?.length === 35);
     expect(await viewer()).toEqual({
       header: ["Text", "[:error/message]", "1 line"],
       text: 'Card declined: "insufficient_funds"',
@@ -390,35 +407,27 @@ describe("detail view", () => {
     expect((await viewer()).header[1]).toBe("[:error/message]");
 
     // Cmd+F in the viewer searches the viewer.
-    await page.click(".text-viewer .cm-content");
+    await page.click(".string-viewer .cm-content");
     await page.keyboard.down(mod);
     await page.keyboard.press("f");
     await page.keyboard.up(mod);
-    await page.waitForSelector(".text-viewer .cm-search");
+    await page.waitForSelector(".string-viewer .cm-search");
     expect(await page.$$(".cm-search")).toHaveLength(1);
 
-    await page.click("button[aria-label='Close text']");
-    expect(await page.$(".text-viewer")).toBeNull();
+    await page.click("button[aria-label='Close string']");
+    expect(await page.$(".string-viewer")).toBeNull();
 
     // Closes with the body it belongs to.
-    await clickInEdn("clojure.lang.ExceptionInfo");
-    await page.click(showText);
-    await page.waitForSelector(".text-viewer");
+    await page.click(".cm-string-chip");
+    await page.waitForSelector(".string-viewer");
     await page.click("[role=tab]::-p-text(Payload)");
-    await page.waitForFunction(() => !document.querySelector(".text-viewer"));
+    await page.waitForFunction(() => !document.querySelector(".string-viewer"));
   });
 
-  it("marks strings with line breaks with a chip that opens them as text", async () => {
+  it("marks strings with line breaks with a chip that opens them", async () => {
     await selectRow("payments");
-    // One chip, right before the stack trace's opening quote; none for single-line strings.
-    const chips = await page.$$eval(".pane .cm-string-chip", (chips) =>
-      chips.map((chip) => {
-        const { view } = (chip.closest(".cm-content") as unknown as ViewDom).cmTile.root;
-        const at = view.posAtDOM(chip);
-        return { label: (chip as HTMLElement).dataset.text, next: view.state.sliceDoc(at, at + 11) };
-      }),
-    );
-    expect(chips).toEqual([{ label: "13 lines", next: '"clojure.la' }]);
+    // One chip, right before the stack trace's opening quote; none for short single-line strings.
+    expect(await chips()).toEqual([{ label: "13 lines", next: '"clojure.la' }]);
 
     // Not part of the text: neither drawn as text nor copied.
     expect(await ednText()).not.toContain("13 lines");
@@ -436,43 +445,103 @@ describe("detail view", () => {
 
     // Opens the viewer on its string, with the cursor in it.
     await page.click(".cm-string-chip");
-    await page.waitForSelector(".text-viewer .cm-content");
-    expect(await page.$eval(".text-viewer-header .path", (path) => path.textContent)).toBe("[:error/stacktrace]");
+    await page.waitForSelector(".string-viewer .cm-content");
+    expect(await page.$eval(".string-viewer-header .path", (path) => path.textContent)).toBe("[:error/stacktrace]");
     expect(await page.$eval(".path-footer .path", (path) => path.textContent)).toBe("[:error/stacktrace]");
 
     // With the viewer showing another string, switches back to the chip's.
     await clickInEdn("Card declined");
     await page.waitForFunction(
-      () => document.querySelector(".text-viewer-header .path")?.textContent === "[:error/message]",
+      () => document.querySelector(".string-viewer-header .path")?.textContent === "[:error/message]",
     );
     await page.click(".cm-string-chip");
     await page.waitForFunction(
-      () => document.querySelector(".text-viewer-header .path")?.textContent === "[:error/stacktrace]",
+      () => document.querySelector(".string-viewer-header .path")?.textContent === "[:error/stacktrace]",
     );
   });
 
-  it("fits the text viewer in a narrow panel, side by side", async () => {
+  it("marks EDN, JSON and long strings, and opens EDN and JSON pretty-printed", async () => {
+    await selectRow("17");
+    const labels = (await chips()).map(({ label }) => label);
+    expect(labels).toEqual(["EDN", "JSON", "131 chars"]);
+
+    // EDN: printed like the EDN pane, with folding and form selection, numbers as written.
+    await page.click(".cm-string-chip[data-text=EDN]");
+    await page.waitForSelector(".string-viewer .cm-content");
+    expect(await viewer()).toEqual({
+      header: ["EDN", "[:job/payload]", "8 lines"],
+      text: [
+        '{:email/to "ada@example.com"',
+        " :email/template :receipt",
+        " :email/vars {:order/id 1004",
+        "              :order/total 19.98M",
+        '              :order/items [{:item/sku "A-1" :item/qty 2 :item/price 9.99M}]}',
+        " :email/tags #{:transactional :receipt}",
+        ' :email/send-at #inst "2026-10-05T10:00:00.000-00:00"',
+        " :email/backoff 1.0}",
+      ].join("\n"),
+    });
+    expect(await page.$(".string-viewer .cm-foldGutter")).not.toBeNull();
+    await screenshot("string-viewer-edn");
+
+    // JSON: indented, every number as sent.
+    await page.click(".cm-string-chip[data-text=JSON]");
+    await page.waitForFunction(() => document.querySelector(".string-viewer-header .label")?.textContent === "JSON");
+    // The editor gets its new document in an effect, after the header.
+    await page.waitForFunction(() =>
+      document.querySelector(".string-viewer .cm-content")?.textContent?.includes('"event"'),
+    );
+    expect(await viewer()).toEqual({
+      header: ["JSON", "[:job/webhook]", "10 lines"],
+      text: [
+        "{",
+        '  "event": "payment.succeeded",',
+        '  "id": 12345678901234567890,',
+        '  "amount": 12.50,',
+        '  "currency": "EUR",',
+        '  "metadata": {',
+        '    "order_id": 1004,',
+        '    "tags": []',
+        "  }",
+        "}",
+      ].join("\n"),
+    });
+
+    // Long single-line text: wrapped in the viewer.
+    await page.click(".cm-string-chip[data-text='131 chars']");
+    await page.waitForSelector(".string-viewer .cm-lineWrapping");
+    expect((await viewer()).header).toEqual(["Text", "[:job/callback]", "1 line"]);
+
+    // Brackets alone don't make EDN.
+    await clickInEdn("[retry]");
+    await page.waitForFunction(
+      () => document.querySelector(".string-viewer-header .path")?.textContent === "[:job/note]",
+    );
+    expect((await viewer()).header[0]).toBe("Text");
+  });
+
+  it("fits the string viewer in a narrow panel, side by side", async () => {
     await page.setViewport({ width: 560, height: 650, deviceScaleFactor: 2 });
     await selectRow("payments");
     await page.click(".segmented button:nth-child(2)");
     await page.waitForFunction(() => document.querySelectorAll(".cm-editor").length === 2);
     // The stack trace's text starts past the pane's edge, after its chip; the message's is in view.
     await clickInEdn("Card");
-    await page.waitForSelector(".path-footer button::-p-text(Show text)");
-    await screenshot("show-text-narrow");
+    await page.waitForSelector(".path-footer .path");
+    await screenshot("path-footer-narrow");
     await page.click(".cm-string-chip");
-    await page.waitForSelector(".text-viewer .cm-content");
-    const overflow = await page.$eval(".text-viewer-header", (header) =>
+    await page.waitForSelector(".string-viewer .cm-content");
+    const overflow = await page.$eval(".string-viewer-header", (header) =>
       [...header.children].map((child) => child.getBoundingClientRect().right - header.getBoundingClientRect().right),
     );
     expect(Math.max(...overflow)).toBeLessThanOrEqual(0);
-    await screenshot("text-viewer-narrow");
+    await screenshot("string-viewer-narrow");
   });
 
-  it("resizes the text viewer by dragging its top border, keeping the height for other strings and requests", async () => {
+  it("resizes the string viewer by dragging its top border, keeping the height for other strings and requests", async () => {
     const openTrace = async () => {
       await page.click(".cm-string-chip");
-      await page.waitForSelector(".text-viewer .cm-content");
+      await page.waitForSelector(".string-viewer .cm-content");
     };
     await selectRow("payments");
     await openTrace();
@@ -484,15 +553,15 @@ describe("detail view", () => {
     await dragViewerSplitter(before.top - 150);
     const resized = await viewerBoxes();
     expect(resized.viewer).toBe(before.viewer + 150);
-    await screenshot("text-viewer-resized");
+    await screenshot("string-viewer-resized");
 
     // Kept for another string, after closing, and for another request.
     await clickInEdn("Card declined");
     await page.waitForFunction(
-      () => document.querySelector(".text-viewer-header .path")?.textContent === "[:error/message]",
+      () => document.querySelector(".string-viewer-header .path")?.textContent === "[:error/message]",
     );
     expect((await viewerBoxes()).viewer).toBe(resized.viewer);
-    await page.click("button[aria-label='Close text']");
+    await page.click("button[aria-label='Close string']");
     await openTrace();
     expect((await viewerBoxes()).viewer).toBe(resized.viewer);
     await selectRow("42");
@@ -617,8 +686,12 @@ describe("screenshots for review", () => {
         clip: { x: 430, y: 110, width: 500, height: 60 },
       });
       await page.click(".cm-string-chip");
-      await page.waitForSelector(".text-viewer .cm-content");
-      await screenshot(`text-viewer-${scheme}`);
+      await page.waitForSelector(".string-viewer .cm-content");
+      await screenshot(`string-viewer-${scheme}`);
+      await selectRow("17");
+      await page.click(".cm-string-chip[data-text=EDN]");
+      await page.waitForSelector(".string-viewer .cm-content");
+      await screenshot(`string-viewer-edn-${scheme}`);
       await page.click(".segmented button:nth-child(2)");
       await selectRow("search?q=transit&limit=50");
       await screenshot(`split-${scheme}`);

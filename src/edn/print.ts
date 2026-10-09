@@ -63,11 +63,11 @@ export function nodeAt(index: PathNode, offset: number): PathNode | null {
   }
 }
 
-/** Strings with a line break, in text order: the ones the EDN text shows as an unreadable run of `\n`. */
-export function multiLineStrings(index: PathNode): PathNode[] {
+/** Every string, in text order: map keys and values, elements, tagged values. */
+export function strings(index: PathNode): PathNode[] {
   const found: PathNode[] = [];
   const visit = (node: PathNode) => {
-    if (node.text !== undefined && /[\n\r]/.test(node.text)) found.push(node);
+    if (node.text !== undefined) found.push(node);
     for (const child of node.children) visit(child);
   };
   visit(index);
@@ -259,6 +259,7 @@ function scalar(node: Exclude<EdnNode, { type: "map" | "vector" | "list" | "set"
     case "integer":
       return node.value;
     case "float":
+      if (node.text !== undefined) return node.text;
       if (Number.isNaN(node.value)) return "##NaN";
       if (!Number.isFinite(node.value)) return node.value > 0 ? "##Inf" : "##-Inf";
       return String(node.value);

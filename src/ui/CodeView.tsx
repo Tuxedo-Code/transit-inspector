@@ -23,6 +23,7 @@ import {
 import { styleTags, tags } from "@lezer/highlight";
 import { clojureLanguage } from "@nextjournal/lang-clojure";
 import { useEffect, useRef } from "preact/hooks";
+import { enclosingForm, formAt, type PathNode } from "../edn/print";
 
 /** `text` is plain text with control characters made visible, e.g. a string's contents. */
 export type CodeLanguage = "edn" | "json" | "text";
@@ -182,11 +183,16 @@ export interface Forms {
   around(from: number, to: number): Range | null;
 }
 
-/** Strings that get a chip before their opening quote (EDN pane), which opens them as text. */
+export function formsOf(index: PathNode): Forms {
+  return { at: (offset) => formAt(index, offset), around: (from, to) => enclosingForm(index, from, to) };
+}
+
+/** Strings that get a chip before their opening quote (EDN pane), which opens them in the string viewer. */
 export interface StringChips {
   /** The strings' start offsets and chip labels, in text order. */
   at: readonly { from: number; label: string }[];
-  open(from: number): void;
+  /** Opens the string at `offset` (chip click, or Enter on any string); false when there is no string there. */
+  open(offset: number): boolean;
 }
 
 /**
@@ -197,7 +203,7 @@ class StringChip extends WidgetType {
   constructor(
     readonly from: number,
     readonly label: string,
-    readonly open: (from: number) => void,
+    readonly open: (offset: number) => boolean,
   ) {
     super();
   }
@@ -210,26 +216,30 @@ class StringChip extends WidgetType {
     const chip = document.createElement("span");
     chip.className = "cm-string-chip";
     chip.dataset.text = this.label;
-    chip.title = "Show as text";
+    chip.title = "Show string (Enter)";
     chip.setAttribute("role", "button");
-    chip.setAttribute("aria-label", `Show as text, ${this.label}`);
+    chip.setAttribute("aria-label", `Show string, ${this.label}`);
     // CodeMirror ignores events inside widgets (ignoreEvent), so the chip handles its own clicks.
     chip.addEventListener("mousedown", (event) => {
       if (event.button !== 0) return;
       event.preventDefault();
       view.dispatch({ selection: { anchor: this.from + 1 } });
       view.focus();
-      this.open(this.from);
+      this.open(this.from + 1);
     });
     return chip;
   }
 }
 
-function stringChips(chips: StringChips): Extension {
+/** The chips, and Enter to open the string at the cursor: the keyboard's way in, since chips take only clicks. */
+function stringChips(chips: StringChips): Extension[] {
   const widgets = chips.at.map(({ from, label }) =>
     Decoration.widget({ widget: new StringChip(from, label, chips.open), side: -1 }).range(from),
   );
-  return EditorView.decorations.of(Decoration.set(widgets, true));
+  return [
+    EditorView.decorations.of(Decoration.set(widgets, true)),
+    keymap.of([{ key: "Enter", run: (view) => chips.open(view.state.selection.main.head) }]),
+  ];
 }
 
 /** Double-clicking a bracket selects its form; Cmd+I expands the selection form by form, like Calva. */
@@ -281,9 +291,9 @@ function extensionsFor({
     drawSelection(),
     highlightSelectionMatches(),
     search({ top: true }),
-    // Before the default keymap, so its Cmd+I wins.
+    // Before the default keymap, so their Cmd+I and Enter win.
     ...(forms ? formSelection(forms) : []),
-    ...(chips ? [stringChips(chips)] : []),
+    ...(chips ? stringChips(chips) : []),
     keymap.of([...searchKeymap, ...foldKeymap, ...defaultKeymap]),
     syntaxHighlighting(highlightStyle),
     viewerTheme,
@@ -305,7 +315,7 @@ interface Props {
   diagnostics: readonly Diagnostic[];
   /** Enables selecting forms by bracket double-click and Cmd+I. */
   forms?: Forms;
-  /** Chips before strings that open them as text. */
+  /** Chips before strings that open them in the string viewer. */
   chips?: StringChips | undefined;
   onCursor?: (offset: number) => void;
   label: string;

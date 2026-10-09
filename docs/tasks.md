@@ -365,10 +365,17 @@ From spec "Later". Not to be started until v1 is done:
   - Two flakes found while re-testing, both reproduced with every CPU core busy (`yes > /dev/null` per core):
     - "Copy path" sometimes snapped back from "Copied": an effect reset the label on path change, and Preact runs effects after the next frame, so a click right after a cursor move was undone. `PathFooter` now remembers the copied path instead. Also a real bug for quick clicks.
     - The in-flight test expected times as "x.xx s", but Node's timers fire up to 1 ms early (about 1 in 100), so a request held for `IN_FLIGHT_MS` can show "1000 ms". It now checks the time as a number.
-- [~] String viewer: resizable, EDN and JSON strings pretty-printed, chips instead of "Show text" (spec "String viewer")
+- [x] String viewer: resizable, EDN and JSON strings pretty-printed, chips instead of "Show text" (spec "String viewer")
   - Why: the viewer's fixed half pane is too small for long strings; strings holding EDN or JSON (job payloads, webhook bodies) read as one escaped line; "Show text" offered a raw dump rather than a readable view.
   - How: a splitter above the viewer, its height kept in memory for the panel's lifetime; our own EDN reader (`src/edn/read.ts`) and a number-preserving JSON re-indenter; chips on strings with line breaks, EDN, JSON, or over 120 characters; Enter opens the string at the cursor. The footer's "Show text" is gone.
   - Done when: unit and e2e tests pass (Chrome and Brave); screenshots in light and dark, wide and narrow, look native; store screenshots regenerated.
+  - `Splitter` now takes an axis, so the list and the viewer share it. DevTools' drawer resizer (measured): 6px, `ns-resize`, centered on the border, transparent. The viewer's height lives in `App` state, not `settings.ts`, so nothing new is stored.
+  - Chip rules and detection: `src/ui/string-view.ts`; the reader: `src/edn/read.ts`. A collection that would print exactly as the EDN pane shows it (`[1 2]`) stays text, so short brackets get no chip. JSON wins over EDN because `{"a":true}` also reads as EDN. Clojure's `#object[Foo 0x1a2b ...]` needs hex integers, kept as written.
+  - Chips for 40,000 strings, half of them JSON to parse and format, take about 34 ms; plain strings only pay a first-character check.
+  - The viewer's header updates before its editor (CodeView swaps documents in an effect), so tests wait for the editor's content or classes, never just the header.
+  - Tools that write files may decode `é` written in source; `read.test.ts` builds its `\u` escapes from a constant.
+  - Verified: lint, typecheck, unit, UI and real-DevTools e2e in Chrome and Brave; screenshots in light and dark, wide and 560px; store screenshots regenerated (screenshot 3 is now `screenshot-3-string.png`, the EDN payload).
+  - Two flakes seen once each and not reproduced (about 48 full Chrome runs and 22 Brave runs, also with every core busy): in Chrome, the real-DevTools Enter test timed out once before it waited for the panel's focus (output not kept); in Brave, "in the editor opens only the editor's search" failed once at 517 ms, after its 500 ms settle. If either comes back, keep the log.
 - [ ] Vertical scroll sync between panes
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)

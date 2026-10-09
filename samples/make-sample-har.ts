@@ -84,6 +84,25 @@ const stacktrace = [
   "\t... 7 more",
 ].join("\n");
 
+// A job record as queues keep it: its payload is EDN and its webhook body JSON, each stored as a string.
+const job = tmap(
+  kw("job/id"),
+  17,
+  kw("job/queue"),
+  kw("emails"),
+  kw("job/payload"),
+  '{:email/to "ada@example.com", :email/template :receipt, :email/vars {:order/id 1004, :order/total 19.98M, ' +
+    ':order/items [{:item/sku "A-1", :item/qty 2, :item/price 9.99M}]}, :email/tags #{:transactional :receipt}, ' +
+    ':email/send-at #inst "2026-10-05T10:00:00.000-00:00", :email/backoff 1.0}',
+  kw("job/webhook"),
+  '{"event":"payment.succeeded","id":12345678901234567890,"amount":12.50,"currency":"EUR",' +
+    '"metadata":{"order_id":1004,"tags":[]}}',
+  kw("job/callback"),
+  "https://hooks.example.com/v1/callbacks/jobs/17?signature=3f9a1c7e5b2d8f4a6c0e9b1d3f5a7c9e2b4d6f8a0c1e3b5d7f9a2c4e6b8d0f1a&attempt=1",
+  kw("job/note"),
+  "[retry]: not EDN, just brackets",
+);
+
 interface Spec {
   method: string;
   url: string;
@@ -189,6 +208,7 @@ const specs: Spec[] = [
     responseMime: "application/transit+json",
     responseBody: write(tmap(kw("ok?"), true)),
   },
+  { method: "GET", url: "/api/jobs/17", responseMime: "application/transit+json", responseBody: write(job) },
 ];
 
 const origin = "https://app.example.com";
