@@ -14,6 +14,9 @@ interface Props {
   row: RequestRow;
   viewMode: ViewMode;
   onViewMode: (mode: ViewMode) => void;
+  /** The text viewer's height once dragged; null for its default, half the pane. */
+  viewerHeight: number | null;
+  onViewerHeight: (height: number) => void;
   onClose: () => void;
 }
 
@@ -34,7 +37,7 @@ function initialDirection(row: RequestRow): Direction {
   return row.response.kind !== "transit" && row.request.kind === "transit" ? "request" : "response";
 }
 
-export function DetailView({ row, viewMode, onViewMode, onClose }: Props) {
+export function DetailView({ row, viewMode, onViewMode, viewerHeight, onViewerHeight, onClose }: Props) {
   const [direction, setDirection] = useState<Direction>(() => initialDirection(row));
   const body = direction === "request" ? row.request : row.response;
   const view = viewBody(body, direction);
@@ -80,14 +83,29 @@ export function DetailView({ row, viewMode, onViewMode, onClose }: Props) {
         </span>
       </div>
       <div class={`panes ${viewMode}`}>
-        {viewMode !== "transit" && <EdnPane key={`${row.id}:${direction}:edn`} view={view} />}
+        {viewMode !== "transit" && (
+          <EdnPane
+            key={`${row.id}:${direction}:edn`}
+            view={view}
+            viewerHeight={viewerHeight}
+            onViewerHeight={onViewerHeight}
+          />
+        )}
         {viewMode !== "edn" && <RawPane key={`${row.id}:${direction}:raw`} view={view.raw} />}
       </div>
     </div>
   );
 }
 
-function EdnPane({ view }: { view: BodyView }) {
+function EdnPane({
+  view,
+  viewerHeight,
+  onViewerHeight,
+}: {
+  view: BodyView;
+  viewerHeight: number | null;
+  onViewerHeight: (height: number) => void;
+}) {
   /** The value at the cursor; null before the cursor was placed. */
   const [node, setNode] = useState<PathNode | null>(null);
   /** The string shown in the text viewer: the last one the cursor was on since it opened. Null while closed. */
@@ -132,7 +150,15 @@ function EdnPane({ view }: { view: BodyView }) {
         onCursor={onCursor}
         label="Decoded EDN"
       />
-      {shown && <TextViewer path={formatPath(shown.path)} text={shown.text ?? ""} onClose={() => setShown(null)} />}
+      {shown && (
+        <TextViewer
+          path={formatPath(shown.path)}
+          text={shown.text ?? ""}
+          height={viewerHeight}
+          onHeight={onViewerHeight}
+          onClose={() => setShown(null)}
+        />
+      )}
       <PathFooter node={node} onShowText={shown ? undefined : () => setShown(node)} />
     </div>
   );

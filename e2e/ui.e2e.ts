@@ -76,9 +76,10 @@ const listPaneBox = () =>
     return { width, right };
   });
 
-async function splitterBox() {
-  const box = await (await page.$(".splitter"))?.boundingBox();
-  if (!box) throw new Error("No splitter");
+/** The splitter between the request list and the detail view (`vertical`), or the text viewer's (`horizontal`). */
+async function splitterBox(orientation: "vertical" | "horizontal" = "vertical") {
+  const box = await (await page.$(`.splitter[aria-orientation=${orientation}]`))?.boundingBox();
+  if (!box) throw new Error(`No ${orientation} splitter`);
   return box;
 }
 
@@ -91,6 +92,24 @@ async function dragSplitter(x: number): Promise<void> {
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.up();
 }
+
+/** Drags the splitter above the text viewer to `y`. */
+async function dragViewerSplitter(y: number): Promise<void> {
+  const box = await splitterBox("horizontal");
+  const x = box.x + box.width / 2;
+  await page.mouse.move(x, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.up();
+}
+
+/** The heights of the EDN editor and the text viewer under it, and the viewer's top. */
+const viewerBoxes = () =>
+  page.$eval(".pane", (pane) => {
+    const editor = (pane.querySelector(":scope > .code-view") as HTMLElement).getBoundingClientRect();
+    const viewer = (pane.querySelector(".text-viewer") as HTMLElement).getBoundingClientRect();
+    return { editor: editor.height, viewer: viewer.height, top: viewer.top };
+  });
 
 /** CodeMirror links its view from the content DOM; tests read the editor's state through it. */
 type ViewDom = { cmTile: { root: { view: EditorView } } };
@@ -448,6 +467,53 @@ describe("detail view", () => {
     );
     expect(Math.max(...overflow)).toBeLessThanOrEqual(0);
     await screenshot("text-viewer-narrow");
+  });
+
+  it("resizes the text viewer by dragging its top border, keeping the height for other strings and requests", async () => {
+    const openTrace = async () => {
+      await page.click(".cm-string-chip");
+      await page.waitForSelector(".text-viewer .cm-content");
+    };
+    await selectRow("payments");
+    await openTrace();
+    const before = await viewerBoxes();
+    // Half the space at first, with the splitter centered on the viewer's border, like DevTools' drawer resizer.
+    expect(Math.abs(before.viewer - before.editor)).toBeLessThanOrEqual(1);
+    const splitter = await splitterBox("horizontal");
+    expect(splitter.y + splitter.height / 2).toBe(before.top);
+    await dragViewerSplitter(before.top - 150);
+    const resized = await viewerBoxes();
+    expect(resized.viewer).toBe(before.viewer + 150);
+    await screenshot("text-viewer-resized");
+
+    // Kept for another string, after closing, and for another request.
+    await clickInEdn("Card declined");
+    await page.waitForFunction(
+      () => document.querySelector(".text-viewer-header .path")?.textContent === "[:error/message]",
+    );
+    expect((await viewerBoxes()).viewer).toBe(resized.viewer);
+    await page.click("button[aria-label='Close text']");
+    await openTrace();
+    expect((await viewerBoxes()).viewer).toBe(resized.viewer);
+    await selectRow("42");
+    await selectRow("payments");
+    await openTrace();
+    expect((await viewerBoxes()).viewer).toBe(resized.viewer);
+
+    // Either pane keeps 50px at the edges.
+    await dragViewerSplitter(0);
+    expect((await viewerBoxes()).editor).toBe(50);
+    await dragViewerSplitter(5000);
+    expect((await viewerBoxes()).viewer).toBe(50);
+
+    // A shorter panel shrinks a tall viewer down to the editor's minimum; it grows back when there is room again.
+    await dragViewerSplitter(0);
+    const tall = await viewerBoxes();
+    await page.setViewport({ width: 1300, height: 400, deviceScaleFactor: 2 });
+    expect((await viewerBoxes()).editor).toBe(50);
+    expect((await viewerBoxes()).viewer).toBeLessThan(tall.viewer);
+    await page.setViewport({ width: 1300, height: 650, deviceScaleFactor: 2 });
+    expect(await viewerBoxes()).toEqual(tall);
   });
 
   it("copies a whole multi-MB body with select all, although only visible lines are drawn", async () => {

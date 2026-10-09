@@ -51,6 +51,8 @@ export function App({ store }: { store: RequestStore }) {
   const [listHidden, setListHidden] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
   const [listWidth, setListWidth] = useState(loadListWidth);
+  /** The string viewer's height (px) once dragged. Kept for every request until the panel closes, never stored. */
+  const [viewerHeight, setViewerHeight] = useState<number | null>(null);
   const listPane = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -136,13 +138,24 @@ export function App({ store }: { store: RequestStore }) {
             )}
           </div>
         )}
-        {showList && selected && <Splitter pane={listPane} onResize={resizeList} />}
+        {showList && selected && (
+          <Splitter
+            axis="x"
+            pane={listPane}
+            min={LIST_MIN_WIDTH}
+            max={() => (listPane.current?.parentElement?.clientWidth ?? 0) - DETAIL_MIN_WIDTH}
+            label="Resize request list"
+            onResize={resizeList}
+          />
+        )}
         {selected && (
           <DetailView
             key={selected.id}
             row={selected}
             viewMode={viewMode}
             onViewMode={changeViewMode}
+            viewerHeight={viewerHeight}
+            onViewerHeight={setViewerHeight}
             onClose={() => setSelectedId(null)}
           />
         )}

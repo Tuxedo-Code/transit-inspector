@@ -20,7 +20,7 @@ Shortcuts are written for macOS. On Windows and Linux, use Ctrl instead of Cmd.
 
 **Path footer.** The footer under the EDN view shows the `get-in` path of the value at the cursor, such as `[:user :orders 0 :id]`, with a "Copy path" button.
 
-**Read a string.** The EDN view prints strings escaped, so a stack trace or SQL query shows as one long line with `\n` and `\t`. Click the gray chip before such a string, labeled with its line count (like `13 lines`), or put the cursor on any string and click "Show text" in the footer: the string opens as plain text under the EDN view, with real line breaks and tabs. Select and copy there to get the string itself, without escapes. While it is open, it follows the cursor to other strings. Cmd+F searches it too.
+**Read a string.** The EDN view prints strings escaped, so a stack trace or SQL query shows as one long line with `\n` and `\t`. Click the gray chip before such a string, labeled with its line count (like `13 lines`), or put the cursor on any string and click "Show text" in the footer: the string opens as plain text under the EDN view, with real line breaks and tabs. Select and copy there to get the string itself, without escapes. While it is open, it follows the cursor to other strings. Drag its top border to give it more room; it keeps that height until DevTools closes. Cmd+F searches it too.
 
 **Layout.** Drag the border between the request list and the detail view to resize them. The width is remembered. The "Hide request list" button in the toolbar gives the detail view the full width.
 

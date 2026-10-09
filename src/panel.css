@@ -239,6 +239,14 @@ button {
   touch-action: none;
 }
 
+/* Like DevTools' drawer resizer: the same strip lying down, centered on the text viewer's top border. */
+.splitter[aria-orientation="horizontal"] {
+  width: auto;
+  height: 6px;
+  margin: -3px 0;
+  cursor: ns-resize;
+}
+
 /* Request list: a data grid like the Network panel's (27px header, 21px rows, odd rows shaded). */
 .request-list {
   flex: 1;
@@ -471,13 +479,20 @@ button {
   user-select: text;
 }
 
-/* Text viewer: the lower half of the EDN pane, showing a string as plain text */
+/*
+ * Text viewer: the lower half of the EDN pane, showing a string as plain text, until resized (its flex basis is then
+ * set inline). The minimum heights are VIEWER_MIN_HEIGHT and EDITOR_MIN_HEIGHT in TextViewer.tsx.
+ */
 .text-viewer {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-height: 0;
+  min-height: 50px;
   border-top: 1px solid var(--divider);
+}
+
+.pane:has(> .text-viewer) > .code-view {
+  min-height: 50px;
 }
 
 /* Path footer under the EDN pane, and the text viewer's header row in the same style */

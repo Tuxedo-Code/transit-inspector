@@ -15,6 +15,24 @@ const ROW_NAMES = `[...document.querySelectorAll(".request-list tbody tr")].map(
 const sameList = (expected: string[]) => (names: string[]) => JSON.stringify(names) === JSON.stringify(expected);
 const ON_LOAD = ["transit", "transit-as-json", "plain", "echo"];
 
+/** Where the panel's frame sits in the DevTools window, to turn panel coordinates into real mouse positions. */
+async function panelFrameOrigin(): Promise<{ x: number; y: number }> {
+  const frame = await devtools.evaluate(() => {
+    const find = (root: Document | ShadowRoot): HTMLIFrameElement | null => {
+      for (const el of root.querySelectorAll("iframe")) if (el.src.endsWith("/panel.html")) return el;
+      for (const el of root.querySelectorAll("*")) {
+        const found = el.shadowRoot && find(el.shadowRoot);
+        if (found) return found;
+      }
+      return null;
+    };
+    const rect = find(document)?.getBoundingClientRect();
+    return rect && { x: rect.x, y: rect.y };
+  });
+  if (!frame) throw new Error("No Transit panel frame in DevTools");
+  return frame;
+}
+
 beforeAll(async () => {
   server = await startTestServer();
   ({ browser, close: closeBrowser } = await launchWithExtension());
@@ -81,6 +99,22 @@ describe("the Transit panel in real DevTools", () => {
       (content) => content !== "",
     );
     expect(text).toBe("a");
+
+    // Resizes by dragging its top border with the real mouse.
+    const viewerHeight = `document.querySelector(".text-viewer").getBoundingClientRect().height`;
+    const before = await panel.evaluate<number>(viewerHeight);
+    const splitter = await panel.evaluate<{ x: number; y: number }>(`(() => {
+      const { x, y, width, height } = document.querySelector(".splitter[aria-orientation=horizontal]").getBoundingClientRect();
+      return { x: x + width / 2, y: y + height / 2 };
+    })()`);
+    const frame = await panelFrameOrigin();
+    // DevTools docked at the bottom leaves the pane short, so a small drag; heights are rounded to whole pixels.
+    await devtools.mouse.move(frame.x + splitter.x, frame.y + splitter.y);
+    await devtools.mouse.down();
+    await devtools.mouse.move(frame.x + splitter.x, frame.y + splitter.y - 20, { steps: 5 });
+    await devtools.mouse.up();
+    await panel.waitFor<number>(viewerHeight, (height) => Math.abs(height - (before + 20)) <= 1);
+
     await panel.evaluate(`document.querySelector("button[aria-label='Close text']").click()`);
     await panel.waitFor<boolean>(`!document.querySelector(".text-viewer")`, Boolean);
   });
@@ -94,19 +128,7 @@ describe("the Transit panel in real DevTools", () => {
       const end = view.coordsAtPos(offset + 1, -1);
       return { x: (start.left + end.right) / 2, y: (start.top + start.bottom) / 2 };
     })()`);
-    const frame = await devtools.evaluate(() => {
-      const find = (root: Document | ShadowRoot): HTMLIFrameElement | null => {
-        for (const el of root.querySelectorAll("iframe")) if (el.src.endsWith("/panel.html")) return el;
-        for (const el of root.querySelectorAll("*")) {
-          const found = el.shadowRoot && find(el.shadowRoot);
-          if (found) return found;
-        }
-        return null;
-      };
-      const rect = find(document)?.getBoundingClientRect();
-      return rect && { x: rect.x, y: rect.y };
-    });
-    if (!frame) throw new Error("No Transit panel frame in DevTools");
+    const frame = await panelFrameOrigin();
     await devtools.mouse.click(frame.x + inPanel.x, frame.y + inPanel.y, { count: 2 });
     await panel.waitFor<string>(
       `(() => { const { state } = document.querySelector(".pane .cm-content").cmTile.root.view;

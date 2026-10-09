@@ -365,6 +365,10 @@ From spec "Later". Not to be started until v1 is done:
   - Two flakes found while re-testing, both reproduced with every CPU core busy (`yes > /dev/null` per core):
     - "Copy path" sometimes snapped back from "Copied": an effect reset the label on path change, and Preact runs effects after the next frame, so a click right after a cursor move was undone. `PathFooter` now remembers the copied path instead. Also a real bug for quick clicks.
     - The in-flight test expected times as "x.xx s", but Node's timers fire up to 1 ms early (about 1 in 100), so a request held for `IN_FLIGHT_MS` can show "1000 ms". It now checks the time as a number.
+- [~] String viewer: resizable, EDN and JSON strings pretty-printed, chips instead of "Show text" (spec "String viewer")
+  - Why: the viewer's fixed half pane is too small for long strings; strings holding EDN or JSON (job payloads, webhook bodies) read as one escaped line; "Show text" offered a raw dump rather than a readable view.
+  - How: a splitter above the viewer, its height kept in memory for the panel's lifetime; our own EDN reader (`src/edn/read.ts`) and a number-preserving JSON re-indenter; chips on strings with line breaks, EDN, JSON, or over 120 characters; Enter opens the string at the cursor. The footer's "Show text" is gone.
+  - Done when: unit and e2e tests pass (Chrome and Brave); screenshots in light and dark, wide and narrow, look native; store screenshots regenerated.
 - [ ] Vertical scroll sync between panes
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)

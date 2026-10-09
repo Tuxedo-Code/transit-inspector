@@ -6,18 +6,27 @@ export const LIST_MIN_WIDTH = 50;
 export const DETAIL_MIN_WIDTH = 30;
 
 interface Props {
-  /** The request list pane, left of the splitter. */
+  /** `x` resizes the pane's width (a vertical divider), `y` its height (a horizontal one). */
+  axis: "x" | "y";
+  /** The pane it resizes, next to the splitter. */
   pane: RefObject<HTMLElement | null>;
-  /** Called with the new list width while dragging, and with `done` set once the drag ends. */
-  onResize: (width: number, done: boolean) => void;
+  /** The pane comes after the splitter (right or below), so dragging towards it shrinks it. */
+  after?: boolean;
+  min: number;
+  /** The largest size the pane may take, read when a drag starts. */
+  max: () => number;
+  label: string;
+  /** Called with the new size while dragging, and with `done` set once the drag ends. */
+  onResize: (size: number, done: boolean) => void;
 }
 
 /**
- * The draggable divider between the request list and the detail view. Like the Network panel's, it is an invisible
- * 6px strip centered on the list's border, with no keyboard control.
+ * A draggable divider next to a pane. Like DevTools' own, it is an invisible 6px strip centered on the pane's border,
+ * with no keyboard control.
  */
-export function Splitter({ pane, onResize }: Props) {
-  const drag = useRef<{ startX: number; startWidth: number; width: number } | null>(null);
+export function Splitter({ axis, pane, after = false, min, max, label, onResize }: Props) {
+  const drag = useRef<{ start: number; startSize: number; size: number; max: number } | null>(null);
+  const position = (event: PointerEvent) => (axis === "x" ? event.clientX : event.clientY);
 
   const onPointerDown = (event: PointerEvent) => {
     const element = pane.current;
@@ -25,31 +34,31 @@ export function Splitter({ pane, onResize }: Props) {
     // Keeps the pointer events (and the cursor) on the splitter while dragging over the editors, and stops text selection.
     event.preventDefault();
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    const startWidth = element.getBoundingClientRect().width;
-    drag.current = { startX: event.clientX, startWidth, width: startWidth };
+    const rect = element.getBoundingClientRect();
+    const startSize = axis === "x" ? rect.width : rect.height;
+    drag.current = { start: position(event), startSize, size: startSize, max: max() };
   };
 
   const onPointerMove = (event: PointerEvent) => {
     const state = drag.current;
-    const container = pane.current?.parentElement;
-    if (!state || !container) return;
-    const max = container.clientWidth - DETAIL_MIN_WIDTH;
-    state.width = Math.round(Math.max(LIST_MIN_WIDTH, Math.min(state.startWidth + event.clientX - state.startX, max)));
-    onResize(state.width, false);
+    if (!state) return;
+    const delta = (position(event) - state.start) * (after ? -1 : 1);
+    state.size = Math.round(Math.max(min, Math.min(state.startSize + delta, state.max)));
+    onResize(state.size, false);
   };
 
   // Fires after pointerup and pointercancel alike.
   const onLostPointerCapture = () => {
     const state = drag.current;
     drag.current = null;
-    if (state && state.width !== state.startWidth) onResize(state.width, true);
+    if (state && state.size !== state.startSize) onResize(state.size, true);
   };
 
   return (
     <hr
       class="splitter"
-      aria-orientation="vertical"
-      aria-label="Resize request list"
+      aria-orientation={axis === "x" ? "vertical" : "horizontal"}
+      aria-label={label}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onLostPointerCapture={onLostPointerCapture}
