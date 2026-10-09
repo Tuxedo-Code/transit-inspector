@@ -543,6 +543,8 @@ describe("detail view", () => {
       await page.click(".cm-string-chip");
       await page.waitForSelector(".string-viewer .cm-content");
     };
+    // An odd height splits the space into half pixels, as on CI's Linux runners: dragging rounds to whole pixels.
+    await page.setViewport({ width: 1300, height: 651, deviceScaleFactor: 2 });
     await selectRow("payments");
     await openTrace();
     const before = await viewerBoxes();
@@ -552,7 +554,7 @@ describe("detail view", () => {
     expect(splitter.y + splitter.height / 2).toBe(before.top);
     await dragViewerSplitter(before.top - 150);
     const resized = await viewerBoxes();
-    expect(resized.viewer).toBe(before.viewer + 150);
+    expect(resized.viewer).toBe(Math.round(before.viewer + 150));
     await screenshot("string-viewer-resized");
 
     // Kept for another string, after closing, and for another request.
@@ -581,7 +583,7 @@ describe("detail view", () => {
     await page.setViewport({ width: 1300, height: 400, deviceScaleFactor: 2 });
     expect((await viewerBoxes()).editor).toBe(50);
     expect((await viewerBoxes()).viewer).toBeLessThan(tall.viewer);
-    await page.setViewport({ width: 1300, height: 650, deviceScaleFactor: 2 });
+    await page.setViewport({ width: 1300, height: 651, deviceScaleFactor: 2 });
     expect(await viewerBoxes()).toEqual(tall);
   });
 
