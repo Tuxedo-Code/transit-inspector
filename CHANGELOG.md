@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.6.0...v0.7.0) (2026-10-09)
+
+
+### Features
+
+* pretty-print EDN and JSON stored in strings, and open strings from chips or Enter ([35e6879](https://github.com/Tuxedo-Code/transit-inspector/commit/35e6879bfdf1b5fdd95a6ac9d0bd755f802d3a20))
+* resize the text viewer by dragging its top border ([f4851e9](https://github.com/Tuxedo-Code/transit-inspector/commit/f4851e9d2beb63b942779151416937e6db913f2d))
+
 ## [0.6.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.5.1...v0.6.0) (2026-10-08)
 
 
