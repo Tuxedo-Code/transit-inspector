@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.7.0...v0.8.0) (2026-10-10)
+
+
+### Features
+
+* search all requests from a Search pane, like the Network panel's ([9150432](https://github.com/Tuxedo-Code/transit-inspector/commit/915043292762934e4b8f71a2beef5039fb319628))
+
 ## [0.7.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.6.0...v0.7.0) (2026-10-09)
 
 
