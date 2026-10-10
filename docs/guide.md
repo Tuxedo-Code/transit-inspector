@@ -14,7 +14,11 @@ Shortcuts are written for macOS. On Windows and Linux, use Ctrl instead of Cmd.
 
 **Editor.** Both views are read-only editors: select, copy, and fold maps, vectors, lists and sets with the arrows in the EDN gutter. Problems such as malformed Transit, unknown tags or lost precision are underlined, with a message on hover.
 
-**Search.** Cmd+F anywhere in the panel searches the open view. With nothing open, it focuses the URL filter.
+**Search.** Three kinds, as in the Network panel:
+
+- **Filter the list:** type in the filter box to keep the requests whose URL contains the text.
+- **Find in a body:** click into the EDN or Transit view (or the string viewer), then press Cmd+F.
+- **Search all requests:** press Cmd+F anywhere else in the panel, or click the magnifier in the toolbar. Type and press Enter. The Search pane lists every request with a match, with every matching line under it, in the payload or the response. Turn on `.*` for a regular expression and `Aa` to match case. Click a line to open that request with the match selected; Cmd+G then steps through the other matches in that body. The results stay until you search again or click Refresh.
 
 **Select a form.** Double-click an opening or closing bracket in the EDN view to select the whole map, vector, list or set. Press Cmd+I to expand the selection to the enclosing form, step by step, like Calva.
 
@@ -57,6 +61,8 @@ With the cursor on any string, Enter opens it too. Select and copy in the viewer
 - EDN or JSON in a string is shown pretty-printed only: comments, `#_` and the original layout are dropped. The EDN view still shows the string as sent, escaped. A string counts as EDN or JSON only when all of it is a single map, vector, list or set; anything that doesn't read cleanly, such as Clojure's `#"regex"` or `#'var`, shows as plain text. Strings inside the pretty-printed value stay escaped.
 - Paths in the footer use list positions too, but `get-in` can't index into lists, so such a path won't work as-is in Clojure.
 - The URL filter is a plain case-insensitive substring match: no wildcards or regular expressions.
+- Search all requests looks through the decoded EDN, not the raw Transit, so it finds every use of a key even where Transit sent a cache code like `^1`. Strings are searched as the EDN view shows them, escaped: to find text after a line break, search for `\n`. It doesn't search URLs (use the filter) or headers, and a regular expression matches within one line.
+- The first search decodes every Transit body, which can take a moment with many large responses.
 - Bodies are decoded when you open them. A 3 MB response takes about 100 ms; much larger ones may briefly freeze the panel.
 
 ## Troubleshooting
@@ -68,5 +74,7 @@ With the cursor on any string, Enter opens it too. Select and copy in the viewer
 **A request is grayed out.** It carries no Transit in either direction, its body is `transit+msgpack`, or it never got a response (network error, CORS, cancelled).
 
 **Cmd+F opens DevTools' own search bar.** That happens right after you switch to the Transit tab, and DevTools' bar can't search the panel. Click anywhere in the panel first, then press Cmd+F again.
+
+**Cmd+F opens the Search pane instead of the find bar.** The find bar searches the view you're in: click into the EDN or Transit view first.
 
 **"This body is no longer available in DevTools".** DevTools has discarded the body. Repeat the request to see it.

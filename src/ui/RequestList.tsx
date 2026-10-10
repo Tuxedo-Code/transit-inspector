@@ -29,6 +29,11 @@ export function RequestList({ rows, selectedId, onSelect, compact }: Props) {
     if (element && pinnedToBottom.current) element.scrollTop = element.scrollHeight;
   }, [rows]);
 
+  // A search result can select a row that is scrolled out of view.
+  useLayoutEffect(() => {
+    scroller.current?.querySelector("tr.selected")?.scrollIntoView({ block: "nearest" });
+  }, [selectedId]);
+
   const onScroll = () => {
     const element = scroller.current;
     if (element) pinnedToBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 4;

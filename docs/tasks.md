@@ -376,6 +376,16 @@ From spec "Later". Not to be started until v1 is done:
   - Tools that write files may decode `é` written in source; `read.test.ts` builds its `\u` escapes from a constant.
   - Verified: lint, typecheck, unit, UI and real-DevTools e2e in Chrome and Brave; screenshots in light and dark, wide and 560px; store screenshots regenerated (screenshot 3 is now `screenshot-3-string.png`, the EDN payload).
   - Two flakes seen once each and not reproduced (about 48 full Chrome runs and 22 Brave runs, also with every core busy): in Chrome, the real-DevTools Enter test timed out once before it waited for the panel's focus (output not kept); in Brave, "in the editor opens only the editor's search" failed once at 517 ms, after its 500 ms settle. If either comes back, keep the log.
+- [x] Search all requests, with Cmd+F routed like the Network panel (spec "Search", "Search pane")
+  - Why: finding which call carried a value (an order id, an error message) meant opening requests one by one.
+  - How: a Search pane on the left, like the Network panel's: query with regex and match case, run on Enter, results grouped by request with every matching line; clicking a line opens the request at the match. Cmd+F outside the editors opens it; in an editor it stays that editor's find bar. The URL filter is unchanged.
+  - Done when: unit and e2e tests pass (Chrome and Brave); screenshots in light and dark, wide and narrow, look native next to the Network panel's Search pane; store screenshots regenerated.
+  - The Network panel's behavior and styles were measured with Puppeteer before building (Chrome 154): a row per match, not per line; 25 characters kept before a match; the highlight is the CSS Custom Highlight API, so it isn't in the DOM (its colors are `--search-match`); the empty and no-match states; the 2px inset focus ring; a toggled button's own color (`--toggled`). DevTools' Search pane DOM is in nested shadow roots: walk them, as `e2e/devtools.ts` does.
+  - `src/ui/search.ts` (pure, unit tested) searches; `SearchPane.tsx` draws only the rows in view, so 20,000 matches in the 3 MB sample stay fast (about 150 ms to search, including the decode).
+  - A clicked result reaches the editor as a `Reveal` through `App` and `DetailView`; `CodeView` applies each one once (a `WeakSet`), after its document effect, so remounting a pane doesn't jump back to it.
+  - Tests that read the editor right after opening a request must wait for `.cm-content`: CodeMirror mounts in an effect.
+  - `store/make-images.ts` now moves the mouse away first: the real system pointer over the visible window gave a row its hover color. Screenshot 5 shows the Search pane instead of the find bar.
+  - Verified: lint, typecheck, unit, UI and real-DevTools e2e in Chrome and Brave; the new UI tests also pass with every CPU core busy.
 - [ ] Vertical scroll sync between panes
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)

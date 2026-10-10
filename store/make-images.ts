@@ -93,6 +93,8 @@ try {
   const dpr = await devtools.evaluate(() => devicePixelRatio);
   const zoom = Math.max(STORE.zoom, README.zoom);
   if (dpr < zoom) throw new Error(`Run this on a retina display: zooming ${zoom}x at devicePixelRatio ${dpr} blurs`);
+  // The window is real: the system pointer may rest over a row and show its hover color.
+  await devtools.mouse.move(0, 0);
 
   // Each screenshot shows a different feature.
   // 1. EDN and the request list, with the cursor on a value and its path in the footer.
@@ -130,15 +132,18 @@ try {
   await shoot(devtools, "dark", "screenshot-4-problems");
   await devtools.mouse.move(0, 0);
 
-  // 5. Search.
+  // 5. Search all requests, opened with Cmd+F outside the editors, with a match opened in its request.
   await select(panel, "42");
-  await panel.evaluate(`document.querySelector(".cm-content").focus()`);
+  await panel.evaluate(`document.activeElement?.blur()`);
   await pressShortcut(devtools, MOD, "f");
-  await panel.waitFor<boolean>(`!!document.querySelector(".cm-search input[name=search]")`, Boolean);
-  await devtools.keyboard.type("order/");
+  await panel.waitFor<boolean>(`!!document.activeElement?.matches(".search-field input")`, Boolean);
+  await devtools.keyboard.type(":item/sku");
   await devtools.keyboard.press("Enter");
+  await panel.waitFor<boolean>(`!!document.querySelector(".search-match")`, Boolean);
+  await panel.evaluate(`document.querySelectorAll(".search-match")[1].click()`);
+  await panel.waitFor<string>(`document.querySelector(".search-match.selected") ? "yes" : ""`, Boolean);
   await shoot(devtools, "light", "screenshot-5-search");
-  await devtools.keyboard.press("Escape");
+  await clickButton(panel, "Close search");
 
   // The README's: EDN next to the raw Transit, with a path, in a window about as wide as GitHub shows it (so the
   // text isn't shrunk), at 2x. The list is hidden to give both panes room. In both themes: the README picks the

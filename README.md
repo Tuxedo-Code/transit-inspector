@@ -13,6 +13,7 @@ Transit packs keywords, sets, dates and non-string map keys into strings and arr
 
 - EDN, raw Transit, or both side by side.
 - Fold, select, copy and search like in an editor.
+- Search every captured request at once, like the Network panel's search, and jump to each match.
 - Double-click a bracket to select a whole form. The footer shows the `get-in` path at the cursor.
 - Read long strings without escapes: a stack trace with real line breaks instead of `\n`, EDN or JSON stored in a string pretty-printed.
 - Follows the DevTools theme. Observe only: it never changes requests.

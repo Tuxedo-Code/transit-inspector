@@ -2,7 +2,7 @@
 
 Source of truth for product and architecture decisions. If an implementation needs to deviate, update this file in the same change and say why.
 
-Last updated: 2026-10-09
+Last updated: 2026-10-10
 
 ## Goal
 
@@ -106,7 +106,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
   - Fetch the response body for every Fetch/XHR response whose content type is Transit, JSON-like or missing.
   - Sniff only the first few KB for Transit markers.
   - Keep the body only if it is Transit.
-  - Decode only when a request is selected.
+  - Decode only when a request is selected, or when the Search pane searches (then only the printed text is cached).
   - Cap the list (default: last 1,000 requests, oldest dropped).
 
 ## Decoding and EDN output
@@ -197,15 +197,29 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
   - while open, it follows the cursor to other strings; on anything else it keeps the last string, whose path the header shows;
   - closes with its button, and with the body it belongs to (switching request or Payload/Response). Not remembered.
   - The EDN text stays escaped. Not done instead: printing literal newlines in strings (valid EDN, but continuation lines lose the indentation and a long trace pushes the rest of the body away), showing the string's text in an inline widget in the EDN editor (Cmd+F can't search it, and selecting in it is unreliable), a hover tooltip (can't scroll, select or copy), a switch between pretty-printed and original text (the EDN pane already shows the original; decided with the user), chips inside the viewer (strings nested in pretty-printed EDN or JSON stay escaped).
-- **Search:** Cmd+F (Ctrl+F) anywhere in the panel opens CodeMirror's search in a pane: the focused one, or else the one last focused, or else the first visible. With no pane open it focuses the URL filter box.
+- **Search** works like the Network panel's, in three kinds (behavior measured in Chrome 154 on 2026-10-10):
+  - **Filter requests:** the toolbar filter box (see "Request list").
+  - **Find in a body:** Cmd+F (Ctrl+F) in a focused editor (EDN, raw or string viewer) opens that editor's find bar.
+  - **Search all requests:** Cmd+F anywhere else in the panel, or the toolbar's magnifier button, opens the Search pane and focuses its query. It covers every captured request's payload and response, ignoring the URL filter, like the Network panel's.
   - DevTools' own search bar never opens from the panel. It can't search an extension panel (it only hands the query to the extension's `onSearch`), and the Network panel has its own search instead.
   - Not covered: with focus outside the panel's page, e.g. right after clicking the Transit tab, the key never reaches the panel, so DevTools' bar opens and finds nothing. Focusing the panel on `onShown` would fix that, but it also fires when keyboard users arrow through DevTools' tabs and would pull focus out of the tab strip (verified 2026-10-06 in Chrome 154), so it isn't done.
+- **Search pane** (`src/ui/SearchPane.tsx`, `src/ui/search.ts`), copied from the Network panel's:
+  - **Layout:** a sidebar left of the toolbar and the list, full height: a "Search" tab strip with a close button, the query row, the results, a summary line. Resizable with the same kind of splitter as the list; its width is kept in memory until the panel closes, not stored. Closing it keeps the query and results.
+  - **Query:** a "Find" field with "Clear", regular expression (`.*`) and match case (`Aa`) toggles, then Refresh and "Clear search". It runs on Enter, not as you type: the first search decodes every body.
+  - **What it searches:** Transit bodies as the EDN pane prints them, other kept bodies (a JSON payload, Transit that fails to decode) as received. Raw Transit would miss most matches: it sends a repeated key once and then as a cache code (`^1`). Strings match as printed, i.e. escaped, the same as Cmd+F in the EDN pane. Patterns use CodeMirror's flags (`u`, and `i` unless matching case), so the find bar accepts the same ones, and match within a line, as in DevTools.
+  - **Results:** every matching request in list order, each with every match; nothing is capped. A request row shows its name (last path segment), a dash and the URL without the scheme, and its match count when collapsed. A row per match, even on a line with several, as in DevTools: the line number and the line trimmed, cut 25 characters before the match with "…", the match highlighted. A request with payload matches labels its "Payload" and "Response" parts. Only rows in view are drawn (20px rows, 28px request rows), so tens of thousands of matches scroll smoothly.
+  - **Summary:** "Searching…", then "Search finished." and "Found N matches in M requests." (DevTools says "matching lines in files" while counting matches). No match shows "No matches found" in the pane, as in DevTools; an invalid pattern shows the error.
+  - **Snapshot:** new requests don't change the results until Refresh. Requests that Clear or a navigation removed drop out.
+  - **Clicking a match** opens its request at the match: the list row is selected and scrolled into view, the body's tab opened, the match selected and scrolled to. DevTools only opens the Response tab; selecting the match is ours. The search carries over to that editor's find bar, so Cmd+F opens it filled in and Cmd+G steps on. If the view mode hides the match's pane, it switches to side by side, which shows the match without hiding the pane the user chose.
+  - **Speed:** the search yields to the panel about every 16 ms. Each body's searched text is cached (not the EDN pane's path index, to bound memory). A 3 MB body decodes and searches in about 150 ms.
+  - Not done: arrow-key navigation in the results (DevTools' tree has it), the match count in the find bar, searching headers and URLs (the URL filter covers URLs).
 - **Side by side:** each pane scrolls on its own horizontally. Vertical scroll sync is a later nice-to-have.
 
 ### Look and feel
 
 - **Feel like a built-in DevTools panel, not a separate app.** Where the Network panel has an equivalent control, copy its look and behavior:
   - filter box;
+  - Search pane;
   - clear button;
   - row height;
   - selection highlight;
@@ -301,7 +315,7 @@ User-facing limitations are listed in [guide.md](guide.md#limitations) (the READ
 
 - **Clipboard (verified):** `navigator.clipboard.writeText` fails in the panel ("Document is not focused"); `document.execCommand('copy')` with a temporary textarea works. The path footer's "Copy path" button tries the former and falls back to the latter. Native Cmd+C in the editor is unaffected.
 - Bodies of old requests may be evicted by DevTools; show the "body no longer available" state.
-- **Shortcut forwarding (verified):** DevTools injects a `keydown` listener on the panel's `document` (bubble phase) that forwards its global shortcuts (Cmd+F, Esc, Cmd+Shift+P...) to DevTools, without checking whether the page already handled them. Keys an editor handles are therefore stopped at the editor (`src/ui/CodeView.tsx`), and Cmd+F elsewhere is caught on the document in the capture phase (`src/ui/App.tsx`). Every other shortcut still reaches DevTools.
+- **Shortcut forwarding (verified):** DevTools injects a `keydown` listener on the panel's `document` (bubble phase) that forwards its global shortcuts (Cmd+F, Esc, Cmd+Shift+P...) to DevTools, without checking whether the page already handled them. Keys an editor handles are therefore stopped at the editor (`src/ui/CodeView.tsx`), and Cmd+F elsewhere (which opens the Search pane) is caught on the document in the capture phase (`src/ui/App.tsx`). Every other shortcut still reaches DevTools.
 
 ## Later (not v1)
 

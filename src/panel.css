@@ -16,6 +16,15 @@
   --row-odd: #f7f9fd;
   --divider: #d3e3fd;
   --toolbar-bg: #ffffff;
+  /* DevTools' tab strip, and the Search pane's query field. */
+  --header-bg: #edf2fa;
+  /* The dash between a search result's name and URL: barely there in light, as measured. */
+  --search-dash: #ebedf7;
+  /* Icons in DevTools' own toolbars and trees (the Search pane's buttons and disclosure triangles), and the
+     description text of its empty states. */
+  --icon: #42444d;
+  /* A toggle button that is on, e.g. regular expressions in the Search pane. */
+  --toggled: #1b6ef3;
   --hover: rgb(25 27 31 / 6%);
   --selected-row: #d3e3fd;
   --neutral-container: #e8eaf2;
@@ -45,6 +54,10 @@
   --row-odd: #22252a;
   --divider: #4e5059;
   --toolbar-bg: #22242a;
+  --header-bg: #363840;
+  --search-dash: #44474e;
+  --icon: #c2c3cc;
+  --toggled: #7cacf8;
   --hover: rgb(249 250 252 / 10%);
   --selected-row: #004a77;
   --neutral-container: #363840;
@@ -75,6 +88,10 @@
     --row-odd: #22252a;
     --divider: #4e5059;
     --toolbar-bg: #22242a;
+    --header-bg: #363840;
+    --search-dash: #44474e;
+    --icon: #c2c3cc;
+    --toggled: #7cacf8;
     --hover: rgb(249 250 252 / 10%);
     --selected-row: #004a77;
     --neutral-container: #363840;
@@ -115,10 +132,17 @@ button {
   color: inherit;
 }
 
+/* The Search pane, when open, on the left of everything else, like the Network panel's. */
 .app {
   display: flex;
-  flex-direction: column;
   height: 100%;
+}
+
+.workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
 }
 
 /* Toolbar: one 26px row, like the Network panel's. */
@@ -252,6 +276,8 @@ button {
   flex: 1;
   min-width: 0;
   overflow: auto;
+  /* A row scrolled into view isn't left under the sticky header. */
+  scroll-padding-top: 27px;
 }
 
 .request-list table {
@@ -578,4 +604,301 @@ button {
 
 .text-button:hover {
   background: var(--hover);
+}
+
+/*
+ * Search pane, like the Network panel's (measured in Chrome 154): a "Search" tab strip, the query row, the results as
+ * a tree with 20px rows, and a summary at the bottom. Its width is set inline once dragged.
+ */
+.search-sidebar {
+  display: flex;
+  flex: none;
+  width: min(225px, 40%);
+  min-width: 150px;
+  max-width: calc(100% - 80px);
+  border-right: 1px solid var(--divider);
+}
+
+.search-sidebar[hidden] {
+  display: none;
+}
+
+.search-pane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.search-pane .icon-button {
+  color: var(--icon);
+}
+
+.search-header {
+  display: flex;
+  align-items: stretch;
+  height: 27px;
+  padding-right: 2px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--header-bg);
+  flex: none;
+}
+
+.search-header .tab {
+  display: flex;
+  align-items: center;
+  cursor: default;
+}
+
+.search-header .tab:hover {
+  background: none;
+}
+
+.search-header .spacer {
+  flex: 1;
+}
+
+.search-header .icon-button {
+  align-self: center;
+}
+
+.search-query {
+  display: flex;
+  align-items: center;
+  height: 27px;
+  padding-right: 2px;
+  flex: none;
+}
+
+.search-query > .icon-button {
+  width: 26px;
+  height: 26px;
+}
+
+.search-field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  height: 20px;
+  margin-left: 4px;
+  padding: 0 2px 0 8px;
+  border-radius: 10px;
+  background: var(--header-bg);
+  color: var(--icon);
+}
+
+.search-field:focus-within {
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.search-field > svg {
+  flex: none;
+  margin-right: 4px;
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 16px;
+  padding: 1px 2px;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+}
+
+.field-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--icon);
+  cursor: pointer;
+}
+
+.field-button:last-child {
+  margin-right: 6px;
+}
+
+.field-button:hover {
+  background: var(--hover);
+}
+
+.field-button[aria-pressed="true"] {
+  color: var(--toggled);
+}
+
+.field-button.text-glyph {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.search-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--icon);
+  line-height: 16px;
+  text-align: center;
+}
+
+.search-empty .title {
+  margin-bottom: 4px;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.search-results {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.search-results-content {
+  position: relative;
+}
+
+/* Rows are placed by offset, so only the ones in view need to exist (see SearchResults). */
+.search-request,
+.search-label,
+.search-match {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 20px;
+}
+
+/* 8px above each request, as in DevTools. */
+.search-request {
+  height: 28px;
+  padding-top: 8px;
+}
+
+.search-request-title {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 20px;
+  padding: 2px 0 2px 4px;
+  border: none;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.search-request-title:hover {
+  background: var(--hover);
+}
+
+.search-request-title svg {
+  flex: none;
+  color: var(--icon);
+}
+
+.search-request-title .name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-request-title .dash {
+  margin: 0 4px;
+  color: var(--search-dash);
+}
+
+.search-request-title .qualifier,
+.search-request-title .count {
+  color: var(--fg-subtle);
+}
+
+.search-request-title .count {
+  flex: none;
+  margin: 0 8px;
+}
+
+.search-label {
+  padding-left: 15px;
+  color: var(--fg-subtle);
+  line-height: 20px;
+}
+
+/* The link color shows only in the ellipsis of a cut line, as in DevTools. */
+.search-match {
+  display: block;
+  padding: 2px 0 2px 9px;
+  border: none;
+  background: none;
+  color: var(--primary);
+  line-height: 16px;
+  text-align: left;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+/* A match row is 16px with 2px above and below, so its hover and selection fill only the middle 16px. */
+.search-match:hover,
+.search-match.selected {
+  background: linear-gradient(var(--fill), var(--fill)) 0 2px / 100% 16px no-repeat;
+}
+
+.search-match:hover {
+  --fill: var(--hover);
+}
+
+.search-match.selected {
+  --fill: var(--neutral-container);
+}
+
+.search-match .line-number {
+  margin-right: 5px;
+  padding: 0 4px 0 6px;
+  color: var(--fg-subtle);
+}
+
+.search-match .content {
+  color: var(--fg);
+}
+
+.search-match mark {
+  background: var(--search-match);
+  color: inherit;
+}
+
+.search-summary {
+  display: flex;
+  height: 19px;
+  padding: 0 5px;
+  border-top: 1px solid var(--divider);
+  flex: none;
+}
+
+.search-summary .message {
+  min-width: 0;
+  padding: 2px 0 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-summary .message.error {
+  color: var(--error);
 }

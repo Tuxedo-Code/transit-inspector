@@ -145,6 +145,7 @@ describe("the Transit panel in real DevTools", () => {
   describe("Cmd+F", () => {
     const CM_SEARCH_OPEN = `!!document.querySelector(".cm-search")`;
     const CM_SEARCH_FOCUSED = `!!document.activeElement?.matches(".cm-search input[name=search]")`;
+    const SEARCH_FOCUSED = `!!document.activeElement?.matches(".search-field input")`;
     const settle = () => new Promise((r) => setTimeout(r, 500));
     // Focus stays in the panel's frame, on no control in particular.
     const blurPanel = () => panel.evaluate(`document.activeElement?.blur()`);
@@ -165,25 +166,42 @@ describe("the Transit panel in real DevTools", () => {
       expect(await devtoolsUi(devtools)).toMatchObject({ drawer: false });
     });
 
-    it("elsewhere in the panel opens the pane's search", async () => {
+    it("elsewhere in the panel opens the Search pane, which searches every request", async () => {
       await blurPanel();
       await pressShortcut(devtools, MOD, "f");
-      await panel.waitFor<boolean>(CM_SEARCH_FOCUSED, Boolean);
+      await panel.waitFor<boolean>(SEARCH_FOCUSED, Boolean);
       await settle();
       expect(await devtoolsUi(devtools)).toMatchObject({ searchBar: false });
-      await pressShortcut(devtools, "Escape");
-      await panel.waitFor<boolean>(CM_SEARCH_OPEN, (open) => !open);
+      expect(await panel.evaluate<boolean>(CM_SEARCH_OPEN)).toBe(false);
+
+      await devtools.keyboard.type(":user/id");
+      await devtools.keyboard.press("Enter");
+      const summary = await panel.waitFor<string>(
+        `document.querySelector(".search-summary")?.textContent ?? ""`,
+        (text) => text.startsWith("Search finished."),
+      );
+      // /api/transit, /api/transit-as-json and /api/echo carry the same body; /api/echo in both directions.
+      expect(summary).toBe("Search finished.Found 4 matches in 3 requests.");
+      await panel.evaluate(`document.querySelector(".search-match").click()`);
+      // The EDN pane's selection, read through CodeMirror's view (internal, test only).
+      await panel.waitFor<string>(
+        `(() => {
+          const view = document.querySelector(".pane .cm-content")?.cmTile?.root.view;
+          return view ? view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to) : "";
+        })()`,
+        (selected) => selected === ":user/id",
+      );
+      await panel.evaluate(`document.querySelector("button[aria-label='Close search']").click()`);
     });
 
-    it("with no request open focuses the filter box", async () => {
+    it("with no request open opens the Search pane too", async () => {
       await panel.evaluate(`document.querySelector(".detail button[aria-label=Close]").click()`);
       await blurPanel();
       await pressShortcut(devtools, MOD, "f");
-      await panel.waitFor<string>(`document.activeElement?.getAttribute("aria-label") ?? ""`, (label) =>
-        label.startsWith("Filter"),
-      );
+      await panel.waitFor<boolean>(SEARCH_FOCUSED, Boolean);
       await settle();
       expect(await devtoolsUi(devtools)).toMatchObject({ searchBar: false });
+      await panel.evaluate(`document.querySelector("button[aria-label='Close search']").click()`);
     });
 
     it("leaves DevTools shortcuts the panel doesn't use to DevTools", async () => {

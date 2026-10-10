@@ -1,5 +1,5 @@
 import type { Diagnostic } from "@codemirror/lint";
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { nodeAt, type PathNode, strings } from "../edn/print";
 import type { RequestRow } from "../model";
 import { type BodyView, type Direction, type RawView, viewBody } from "./body-view";
@@ -7,6 +7,7 @@ import { CodeView, formsOf, type StringChips } from "./CodeView";
 import { CloseIcon } from "./icons";
 import { PathFooter } from "./PathFooter";
 import { StringViewer } from "./StringViewer";
+import type { Reveal } from "./search";
 import type { ViewMode } from "./settings";
 import { chipLabel } from "./string-view";
 
@@ -17,6 +18,8 @@ interface Props {
   /** The string viewer's height once dragged; null for its default, half the pane. */
   viewerHeight: number | null;
   onViewerHeight: (height: number) => void;
+  /** A search result in this request to show: its body is opened and the match selected. */
+  reveal: Reveal | null;
   onClose: () => void;
 }
 
@@ -37,10 +40,15 @@ function initialDirection(row: RequestRow): Direction {
   return row.response.kind !== "transit" && row.request.kind === "transit" ? "request" : "response";
 }
 
-export function DetailView({ row, viewMode, onViewMode, viewerHeight, onViewerHeight, onClose }: Props) {
-  const [direction, setDirection] = useState<Direction>(() => initialDirection(row));
+export function DetailView({ row, viewMode, onViewMode, viewerHeight, onViewerHeight, reveal, onClose }: Props) {
+  const [direction, setDirection] = useState<Direction>(() => reveal?.direction ?? initialDirection(row));
+  useEffect(() => {
+    if (reveal) setDirection(reveal.direction);
+  }, [reveal]);
   const body = direction === "request" ? row.request : row.response;
   const view = viewBody(body, direction);
+  // Until the effect above switches to its body, a result in the other body isn't this body's to show.
+  const shown = reveal?.direction === direction ? reveal : null;
 
   return (
     <div class="detail">
@@ -89,9 +97,12 @@ export function DetailView({ row, viewMode, onViewMode, viewerHeight, onViewerHe
             view={view}
             viewerHeight={viewerHeight}
             onViewerHeight={onViewerHeight}
+            reveal={shown?.pane === "edn" ? shown : null}
           />
         )}
-        {viewMode !== "edn" && <RawPane key={`${row.id}:${direction}:raw`} view={view.raw} />}
+        {viewMode !== "edn" && (
+          <RawPane key={`${row.id}:${direction}:raw`} view={view.raw} reveal={shown?.pane === "raw" ? shown : null} />
+        )}
       </div>
     </div>
   );
@@ -101,10 +112,12 @@ function EdnPane({
   view,
   viewerHeight,
   onViewerHeight,
+  reveal,
 }: {
   view: BodyView;
   viewerHeight: number | null;
   onViewerHeight: (height: number) => void;
+  reveal: Reveal | null;
 }) {
   /** The value at the cursor; null before the cursor was placed. */
   const [node, setNode] = useState<PathNode | null>(null);
@@ -152,6 +165,7 @@ function EdnPane({
         forms={forms}
         chips={chips}
         onCursor={onCursor}
+        reveal={reveal}
         label="Decoded EDN"
       />
       {shown && (
@@ -162,7 +176,7 @@ function EdnPane({
   );
 }
 
-function RawPane({ view }: { view: RawView }) {
+function RawPane({ view, reveal }: { view: RawView; reveal: Reveal | null }) {
   const diagnostics = useMemo<Diagnostic[]>(() => {
     if (view.kind !== "text" || !view.error) return [];
     // Underline the character at the error; for truncated input that's past the end, the last character.
@@ -172,7 +186,7 @@ function RawPane({ view }: { view: RawView }) {
   if (view.kind === "message") return <Message text={view.text} />;
   return (
     <div class="pane">
-      <CodeView doc={view.text} language="json" wrap diagnostics={diagnostics} label="Raw Transit" />
+      <CodeView doc={view.text} language="json" wrap diagnostics={diagnostics} reveal={reveal} label="Raw Transit" />
     </div>
   );
 }

@@ -267,24 +267,6 @@ describe("detail view", () => {
     expect(await pressedViewMode()).toBe("Transit");
   });
 
-  it("opens the search of the pane last read with Cmd+F from outside the panes", async () => {
-    const mod = process.platform === "darwin" ? "Meta" : "Control";
-    const searchIn = () =>
-      page.$$eval(".pane", (panes) => panes.map((pane) => Boolean(pane.querySelector(".cm-search"))));
-    await selectRow("42");
-    await page.click(".segmented button:nth-child(2)");
-    await page.waitForFunction(() => document.querySelectorAll(".cm-editor").length === 2);
-    // Read the raw pane, then click outside the panes.
-    await page.click(".pane:nth-child(2) .cm-content");
-    await page.click(".summary .url");
-    await page.keyboard.down(mod);
-    await page.keyboard.press("f");
-    await page.keyboard.up(mod);
-    await page.waitForSelector(".cm-search");
-    expect(await searchIn()).toEqual([false, true]);
-    expect(await page.evaluate(() => document.activeElement?.matches(".cm-search input[name=search]"))).toBe(true);
-  });
-
   it("selects a whole form by double-clicking either of its brackets", async () => {
     await selectRow("42");
     const { doc } = await ednSelection();
@@ -663,6 +645,210 @@ describe("detail view", () => {
   });
 });
 
+describe("search all requests", () => {
+  const MOD = process.platform === "darwin" ? "Meta" : "Control";
+  const pressModF = async () => {
+    await page.keyboard.down(MOD);
+    await page.keyboard.press("f");
+    await page.keyboard.up(MOD);
+  };
+  const searchFocused = () => page.evaluate(() => document.activeElement?.matches(".search-field input"));
+  const summary = () => page.$eval(".search-summary", (element) => element.textContent);
+
+  /** Types a query into the Search pane, replacing the last one, and waits for the search to finish. */
+  async function searchAll(text: string): Promise<void> {
+    await page.click(".search-field input", { count: 3 });
+    await page.keyboard.type(text);
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => {
+      const summary = document.querySelector(".search-summary")?.textContent ?? "";
+      return (
+        summary.startsWith("Search finished.") ||
+        document.querySelector(".search-summary .error, .search-empty[role=status]") !== null
+      );
+    });
+  }
+  const noMatches = () => page.$eval(".search-empty[role=status]", (element) => element.textContent);
+
+  /** The result rows in view: `# name` for a request, `## label` for Payload/Response, `line: text` for a match. */
+  const results = () =>
+    page.$$eval(".search-results-content > *", (items) =>
+      items.map((item) => {
+        if (item.classList.contains("search-request"))
+          return `# ${item.querySelector(".name")?.firstChild?.textContent}`;
+        if (item.classList.contains("search-label")) return `## ${item.textContent}`;
+        const line = item.querySelector(".line-number")?.textContent;
+        return `${line}: ${item.querySelector(".content")?.textContent}`;
+      }),
+    );
+
+  it("opens with Cmd+F outside the editors, and leaves Cmd+F in an editor to its find bar", async () => {
+    // Nothing open, focus on the page.
+    await page.click(".request-list th.name");
+    await pressModF();
+    await page.waitForSelector(".search-sidebar:not([hidden])");
+    expect(await searchFocused()).toBe(true);
+
+    // A request open, focus on its header.
+    await selectRow("42");
+    await page.click(".summary .url");
+    await pressModF();
+    expect(await searchFocused()).toBe(true);
+    expect(await page.$(".cm-search")).toBeNull();
+
+    // In an editor: the editor's own find bar.
+    await page.click(".pane .cm-content");
+    await pressModF();
+    await page.waitForSelector(".pane .cm-search");
+    expect(await page.evaluate(() => document.activeElement?.matches(".cm-search input[name=search]"))).toBe(true);
+  });
+
+  it("opens and closes with the toolbar button, keeping the results", async () => {
+    await page.click("button[aria-label=Search]");
+    expect(await searchFocused()).toBe(true);
+    expect(await page.$eval(".search-empty", (element) => element.textContent)).toBe(
+      "No search resultsType and press ↩ to search",
+    );
+    await searchAll(":item/sku");
+    await page.click("button[aria-label='Close search']");
+    expect(await page.$(".search-sidebar[hidden]")).not.toBeNull();
+    expect(await page.$eval("button[aria-label=Search]", (button) => button.ariaPressed)).toBe("false");
+    await page.click("button[aria-label=Search]");
+    expect((await results())[0]).toBe("# 42");
+  });
+
+  it("lists every match in every request, grouped by request, payload before response", async () => {
+    await page.click("button[aria-label=Search]");
+    await searchAll(":item/sku");
+    // Transit sends a repeated key once and then as a cache code, so the raw body of 42 has one of the three.
+    expect(await results()).toEqual([
+      "# 42",
+      '18: :order/items [{:item/sku "A-1" :item/qty 2 :item/price 9.99M}]}',
+      '22: :order/items [{:item/sku "B-7" :item/qty 2 :item/price 9.99M}]}',
+      '26: :order/items [{:item/sku "C-3" :item/qty 2 :item/price 9.99M}]}]}',
+      "# orders",
+      "## Payload",
+      '1: {:order/items [{:item/sku "A-1" :item/qty 2}]}',
+      "## Response",
+      '4: :order/items [{:item/sku "A-1" :item/qty 2 :item/price 9.99M}]}',
+      "# feed",
+      '4: :order/items [{:item/sku "Z-9" :item/qty 2 :item/price 9.99M}]}',
+      '8: :order/items [{:item/sku "Z-8" :item/qty 2 :item/price 9.99M}]}]',
+      "# 17",
+      expect.stringMatching(/^3: …l 19\.98M, :order\/items \[\{:item\/sku \\"A-1\\"/),
+    ]);
+    expect(await summary()).toBe("Search finished.Found 8 matches in 4 requests.");
+  });
+
+  it("opens a result's request at the match, and carries the search to the pane's find bar", async () => {
+    await page.click("button[aria-label=Search]");
+    await searchAll(":item/sku");
+    // The payload match under "orders".
+    await page.click(".search-label + .search-match");
+    await page.waitForSelector("[role=tab][aria-selected=true]::-p-text(Payload)");
+    await page.waitForFunction(() =>
+      document.querySelector(".pane .cm-content")?.textContent?.includes(":order/items"),
+    );
+    expect(await page.$eval(".request-list tr.selected td", (cell) => cell.textContent)).toBe("orders");
+    expect((await ednSelection()).text).toBe(":item/sku");
+
+    await page.click(".pane .cm-content");
+    await pressModF();
+    await page.waitForSelector(".pane .cm-search");
+    expect(await page.$eval(".cm-search input[name=search]", (input) => (input as HTMLInputElement).value)).toBe(
+      ":item/sku",
+    );
+  });
+
+  it("steps to the next match in the body with Cmd+G, without opening the find bar", async () => {
+    await page.click("button[aria-label=Search]");
+    await searchAll(":item/sku");
+    // The first of the three matches in 42.
+    await page.click(".search-match");
+    await page.waitForFunction(() => document.querySelector(".summary .url")?.textContent?.endsWith("/users/42"));
+    await page.waitForSelector(".pane .cm-content");
+    const first = await ednSelection();
+    expect(first.text).toBe(":item/sku");
+    // Focusing the editor keeps its selection, unlike a click.
+    await page.focus(".pane .cm-content");
+    await page.keyboard.down(MOD);
+    await page.keyboard.press("g");
+    await page.keyboard.up(MOD);
+    const next = await ednSelection();
+    expect(next.text).toBe(":item/sku");
+    expect(next.from).toBe(first.doc.indexOf(":item/sku", first.to));
+    expect(await page.$(".cm-search")).toBeNull();
+  });
+
+  it("switches to side by side when the view mode hides the match", async () => {
+    await selectRow("42");
+    await page.click(".segmented button:nth-child(3)");
+    await page.click("button[aria-label=Search]");
+    await searchAll(":item/sku");
+    await page.click(".search-match");
+    await page.waitForFunction(() => document.querySelectorAll(".cm-editor").length === 2);
+    expect(await pressedViewMode()).toBe("Side by side");
+    expect((await ednSelection()).text).toBe(":item/sku");
+  });
+
+  it("matches case and regular expressions when asked, and reports an invalid pattern", async () => {
+    await page.click("button[aria-label=Search]");
+    await searchAll("ITEM/SKU");
+    const ignoringCase = await summary();
+    expect(ignoringCase).toMatch(/^Search finished\.Found \d+ matches in 4 requests\.$/);
+
+    await page.click("button[aria-label='Enable case sensitive search']");
+    await searchAll("ITEM/SKU");
+    expect(await noMatches()).toBe("No matches foundNothing matched your search query");
+    expect(await page.$(".search-summary")).toBeNull();
+    await page.click("button[aria-label='Enable case sensitive search']");
+
+    await page.click("button[aria-label='Enable regular expressions']");
+    await searchAll(":item/(sku|qty)");
+    const count = (text: string | null) => Number(/Found ([\d,]+)/.exec(text ?? "")?.[1]?.replace(",", ""));
+    expect(count(await summary())).toBeGreaterThan(count(ignoringCase));
+
+    await searchAll("(");
+    expect(await page.$eval(".search-summary .error", (element) => element.textContent)).toMatch(/Invalid regular/);
+  });
+
+  it("drops requests that Clear removed from the results", async () => {
+    await page.click("button[aria-label=Search]");
+    await searchAll(":item/sku");
+    await page.click("button[aria-label=Clear]");
+    await page.waitForSelector(".search-empty[role=status]");
+    expect(await noMatches()).toBe("No matches foundNothing matched your search query");
+  });
+
+  it("lists all matches of a multi-MB body, drawing only the rows in view", async () => {
+    await page.click("button[aria-label=Search]");
+    await searchAll(":row/id");
+    expect(await summary()).toBe("Search finished.Found 20,000 matches in 1 request.");
+    expect((await results()).length).toBeLessThan(100);
+
+    await page.$eval(".search-results", (element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await page.waitForFunction(() =>
+      document.querySelector(".search-match:last-child")?.textContent?.includes("19999"),
+    );
+    await page.click(".search-match:last-child");
+    await page.waitForFunction(() => document.querySelector(".pane .cm-content") !== null);
+    const selection = await ednSelection();
+    expect(selection.text).toBe(":row/id");
+    expect(selection.from).toBe(selection.doc.lastIndexOf(":row/id"));
+  });
+
+  it("resizes by dragging its border", async () => {
+    await page.click("button[aria-label=Search]");
+    const width = () => page.$eval(".search-sidebar", (element) => element.getBoundingClientRect().width);
+    const before = await width();
+    // The first vertical splitter is the Search pane's.
+    await dragSplitter(before + 100);
+    expect(await width()).toBe(before + 100);
+  });
+});
+
 describe("screenshots for review", () => {
   for (const scheme of ["light", "dark"] as const) {
     it(`renders the main states (${scheme})`, async () => {
@@ -694,6 +880,27 @@ describe("screenshots for review", () => {
       await page.click(".cm-string-chip[data-text=EDN]");
       await page.waitForSelector(".string-viewer .cm-content");
       await screenshot(`string-viewer-edn-${scheme}`);
+
+      await page.click("button[aria-label=Search]");
+      await screenshot(`search-all-empty-${scheme}`);
+      await page.keyboard.type(":item/sku");
+      await page.keyboard.press("Enter");
+      await page.waitForSelector(".search-match");
+      await page.click(".search-label + .search-match");
+      await page.waitForFunction(() =>
+        document.querySelector(".pane .cm-content")?.textContent?.includes(":order/items"),
+      );
+      await screenshot(`search-all-${scheme}`);
+      await page.setViewport({ width: 560, height: 650, deviceScaleFactor: 2 });
+      await screenshot(`search-all-narrow-${scheme}`);
+      await page.setViewport({ width: 1300, height: 650, deviceScaleFactor: 2 });
+      await page.click(".search-field input", { count: 3 });
+      await page.keyboard.type("nothing like this");
+      await page.keyboard.press("Enter");
+      await page.waitForSelector(".search-empty[role=status]");
+      await screenshot(`search-all-no-matches-${scheme}`);
+      await page.click("button[aria-label='Close search']");
+
       await page.click(".segmented button:nth-child(2)");
       await selectRow("search?q=transit&limit=50");
       await screenshot(`split-${scheme}`);

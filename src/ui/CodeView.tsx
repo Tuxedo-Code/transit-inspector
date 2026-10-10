@@ -9,7 +9,7 @@ import {
   syntaxHighlighting,
 } from "@codemirror/language";
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
-import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
+import { highlightSelectionMatches, SearchQuery, search, searchKeymap, setSearchQuery } from "@codemirror/search";
 import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import {
   Decoration,
@@ -24,6 +24,7 @@ import { styleTags, tags } from "@lezer/highlight";
 import { clojureLanguage } from "@nextjournal/lang-clojure";
 import { useEffect, useRef } from "preact/hooks";
 import { enclosingForm, formAt, type PathNode } from "../edn/print";
+import type { Reveal } from "./search";
 
 /** `text` is plain text with control characters made visible, e.g. a string's contents. */
 export type CodeLanguage = "edn" | "json" | "text";
@@ -318,14 +319,19 @@ interface Props {
   /** Chips before strings that open them in the string viewer. */
   chips?: StringChips | undefined;
   onCursor?: (offset: number) => void;
+  /** A search result to select and scroll to, once. */
+  reveal?: Reveal | null;
   label: string;
 }
+
+/** Results already shown, so a pane that remounts (switching Payload and Response back) doesn't jump to it again. */
+const revealed = new WeakSet<Reveal>();
 
 /**
  * A read-only CodeMirror viewer with default editor behavior (selection, copy, folding, Cmd+F search), plus form
  * selection when given `forms` and string chips when given `chips`.
  */
-export function CodeView({ doc, language, wrap = false, diagnostics, forms, chips, onCursor, label }: Props) {
+export function CodeView({ doc, language, wrap = false, diagnostics, forms, chips, onCursor, reveal, label }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const cursorListener = useRef(onCursor);
@@ -361,6 +367,22 @@ export function CodeView({ doc, language, wrap = false, diagnostics, forms, chip
     if (diagnostics.length > 0) current.dispatch(setDiagnostics(current.state, [...diagnostics]));
     current.contentDOM.setAttribute("aria-label", label);
   }, [doc, language, wrap, forms, chips, diagnostics, label]);
+
+  // After the document effect above, so the match's range is in the document shown. The search carries over to the
+  // find bar, so Cmd+F opens it filled in and Cmd+G steps to the next match.
+  useEffect(() => {
+    const current = view.current;
+    if (!current || !reveal || revealed.has(reveal) || reveal.to > current.state.doc.length) return;
+    revealed.add(reveal);
+    const { text, caseSensitive, regex } = reveal.search;
+    current.dispatch({
+      selection: { anchor: reveal.from, head: reveal.to },
+      effects: [
+        EditorView.scrollIntoView(reveal.from, { y: "center" }),
+        setSearchQuery.of(new SearchQuery({ search: text, caseSensitive, regexp: regex, literal: true })),
+      ],
+    });
+  }, [reveal, doc]);
 
   return <div class="code-view" ref={host} />;
 }

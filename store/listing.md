@@ -26,7 +26,8 @@ Adds a Transit tab to Chrome DevTools, next to Network. It lists the page's Fetc
 Transit is a format for sending data between applications, most often Clojure and ClojureScript ones. Sent as JSON, it packs keywords, sets, dates and maps with non-string keys into strings and arrays ("~:user/id", ["^ ", ...]), which makes the raw JSON in the Network panel hard to read. Transit Inspector shows it as EDN, Clojure's own data notation.
 
 • Requests carrying Transit are clickable; other Fetch/XHR requests are grayed out. Transit is detected by content type, or by sniffing bodies served as application/json.
-• EDN, Transit, or both side by side. Fold, select, copy and search (Cmd+F / Ctrl+F) like in an editor.
+• EDN, Transit, or both side by side. Fold, select, copy and search like in an editor.
+• Search all requests at once (Cmd+F / Ctrl+F), like the Network panel's search: every match, grouped by request, a click away from the request it's in. Searches the decoded EDN, so keys Transit sent as cache codes are found too.
 • Double-click a bracket to select a whole map, vector, list or set; Cmd+I / Ctrl+I expands the selection to the enclosing form.
 • The footer shows the get-in path of the value at the cursor, with a "Copy path" button.
 • Read long strings without escapes: stack traces and SQL with real line breaks instead of \n, and EDN or JSON stored in a string pretty-printed.

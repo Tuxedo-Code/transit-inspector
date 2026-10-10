@@ -4,6 +4,8 @@ import { useRef } from "preact/hooks";
 /** Narrowest the request list and the detail view get; the detail view keeps its Close button reachable. */
 export const LIST_MIN_WIDTH = 50;
 export const DETAIL_MIN_WIDTH = 30;
+/** Narrowest the Search pane gets: its query field and buttons still fit. */
+export const SEARCH_MIN_WIDTH = 150;
 
 interface Props {
   /** `x` resizes the pane's width (a vertical divider), `y` its height (a horizontal one). */
