@@ -1,4 +1,6 @@
 // The extension in real DevTools, against e2e/test-server.ts. Opens a visible Chrome window.
+import { mkdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import type { Browser, Page } from "puppeteer";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { devtoolsUi, launchWithExtension, MOD, openPageWithTransitPanel, type Panel, pressShortcut } from "./devtools";
@@ -11,6 +13,7 @@ let page: Page;
 let devtools: Page;
 let panel: Panel;
 
+const SCREENSHOTS = resolve(import.meta.dirname, "screenshots");
 const ROW_NAMES = `[...document.querySelectorAll(".request-list tbody tr")].map((tr) => tr.cells[0].textContent)`;
 const sameList = (expected: string[]) => (names: string[]) => JSON.stringify(names) === JSON.stringify(expected);
 const ON_LOAD = ["transit", "transit-as-json", "plain", "echo"];
@@ -65,6 +68,19 @@ describe("the Transit panel in real DevTools", () => {
     );
     expect(edn).toContain(':user/id #uuid "550e8400-e29b-41d4-a716-446655440000"');
     expect(edn).toContain(':tags #{"a" "b"}');
+  });
+
+  // Not compared to anything: these show how the panel sits in this browser's own DevTools theme (CI runs Edge too).
+  it("takes screenshots of the real DevTools window in light and dark", async () => {
+    const name = (await browser.version()).replace(/\/.*/, "").toLowerCase();
+    mkdirSync(SCREENSHOTS, { recursive: true });
+    for (const value of ["light", "dark"]) {
+      await devtools.emulateMediaFeatures([{ name: "prefers-color-scheme", value }]);
+      await panel.waitFor<string>(`matchMedia("(prefers-color-scheme: ${value})").matches`, Boolean);
+      await new Promise((r) => setTimeout(r, 300));
+      await devtools.screenshot({ path: join(SCREENSHOTS, `devtools-${name}-${value}.png`) });
+    }
+    await devtools.emulateMediaFeatures();
   });
 
   it("shows the path at the cursor and copies it", async () => {
