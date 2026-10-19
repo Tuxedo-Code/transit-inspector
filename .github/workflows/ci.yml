@@ -43,10 +43,36 @@ jobs:
           path: e2e/screenshots/
           if-no-files-found: ignore
 
+  # The real-DevTools tests again in Microsoft Edge, which the runner image ships (stable channel).
+  edge:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: npm-edge-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+      - run: microsoft-edge --version
+      - run: npm run build
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: E2E_BROWSER="$(command -v microsoft-edge)" xvfb-run -a npx vitest run --config vitest.e2e.config.ts e2e/devtools.e2e.ts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: e2e-screenshots-edge
+          path: e2e/screenshots/
+          if-no-files-found: ignore
+
   # Keeps the release PR up to date. When that PR is merged, tags the release and attaches the zip.
   # Build and upload live in this job because tags pushed with GITHUB_TOKEN don't trigger other workflows.
   release:
-    needs: check
+    needs: [check, edge]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     concurrency:

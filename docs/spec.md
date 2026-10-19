@@ -253,7 +253,7 @@ Users unzip the release zip and load it with "Load unpacked" (steps in the [READ
 
 ## Releases
 
-- [release-please](https://github.com/googleapis/release-please) runs in CI (`release` job in `.github/workflows/ci.yml`), only on pushes to `main` and only after the `check` job passed.
+- [release-please](https://github.com/googleapis/release-please) runs in CI (`release` job in `.github/workflows/ci.yml`), only on pushes to `main` and only after the `check` and `edge` jobs passed.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org). `feat:` bumps the minor version, `fix:` and `perf:` the patch version; while below 1.0, breaking changes (`feat!:`) bump the minor. Other types (`docs:`, `ci:`, `chore:`, ...) don't trigger a release and don't show in the changelog.
 - Each push with releasable commits opens or updates a "release x.y.z" PR that bumps `package.json`/`package-lock.json` and updates `CHANGELOG.md`. Neither is edited by hand.
 - Merging that PR tags `vX.Y.Z`, creates a GitHub Release whose notes are that version's changelog, and attaches `transit-inspector-<version>.zip` (built by `npm run package` in the same job).
@@ -307,7 +307,7 @@ In place since T18.
   - Passed 8 runs in a row when set up. If it becomes flaky, fix it or fall back to a short manual checklist in `CONTRIBUTING.md`.
 - The real DevTools tests also prove the privacy promise: no CSP violations during normal use, and nothing sent from the panel reaches a server (see "Privacy").
 - Both layers run with `npm run test:e2e` (Vitest, `e2e/*.e2e.ts`). Screenshots go to `e2e/screenshots/` (gitignored) for review.
-- **CI (GitHub Actions, `.github/workflows/ci.yml`):** lint, typecheck, unit and e2e on every push to `main` and every pull request. On Linux, e2e runs under `xvfb-run` because the DevTools tests need a headed browser. Screenshots are uploaded as a workflow artifact. On `main`, a `release` job follows (see "Releases").
+- **CI (GitHub Actions, `.github/workflows/ci.yml`):** lint, typecheck, unit and e2e on every push to `main` and every pull request. On Linux, e2e runs under `xvfb-run` because the DevTools tests need a headed browser. Screenshots are uploaded as a workflow artifact. An `edge` job runs the real-DevTools tests again in the Microsoft Edge (stable) that the runner image ships, and uploads its own screenshots, including the real DevTools window in light and dark (`devtools-<browser>-{light,dark}.png`, named after the product the browser reports). On `main`, a `release` job follows (see "Releases").
 
 ## Known risks
 
