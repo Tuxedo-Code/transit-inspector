@@ -740,6 +740,30 @@ describe("find bar", () => {
     await waitForCount(".pane", "1 of 3");
   });
 
+  it("fits a narrow pane, side by side, clear of its close button", async () => {
+    await page.setViewport({ width: 560, height: 650, deviceScaleFactor: 2 });
+    await selectRow("42");
+    await page.click(".segmented button:nth-child(2)");
+    await page.waitForFunction(() => document.querySelectorAll(".cm-editor").length === 2);
+    // Wider fonts (Linux) give the field a wider minimum size, which ran under the button. A bigger font does the same
+    // on macOS, where the system font is narrow enough to hide it.
+    await page.addStyleTag({ content: ".cm-panel.cm-search input[name=search] { font-size: 16px !important }" });
+    await openFindBar(".pane");
+    await page.keyboard.type("order");
+    await waitForCount(".pane", "16 matches");
+    const edges = await page.$eval(".pane .cm-search", (bar) => {
+      const box = (selector: string) => (bar.querySelector(selector) as HTMLElement).getBoundingClientRect();
+      return {
+        field: box("input[name=search]").right,
+        close: box("[name=close]").left,
+        count: box(".cm-search-count").right,
+        bar: bar.getBoundingClientRect().right,
+      };
+    });
+    expect(edges.field).toBeLessThanOrEqual(edges.close);
+    expect(edges.count).toBeLessThanOrEqual(edges.bar);
+  });
+
   it("counts in the string viewer's find bar too", async () => {
     await selectRow("payments");
     await page.click(".cm-string-chip");
