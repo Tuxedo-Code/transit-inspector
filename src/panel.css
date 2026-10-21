@@ -20,8 +20,8 @@
   --header-bg: #edf2fa;
   /* The dash between a search result's name and URL: barely there in light, as measured. */
   --search-dash: #ebedf7;
-  /* Icons in DevTools' own toolbars and trees (the Search pane's buttons and disclosure triangles), and the
-     description text of its empty states. */
+  /* Icons in DevTools' own toolbars and trees (the Search pane's buttons and disclosure triangles), the
+     description text of its empty states, and the match count in its find bars. */
   --icon: #42444d;
   /* A toggle button that is on, e.g. regular expressions in the Search pane. */
   --toggled: #1b6ef3;

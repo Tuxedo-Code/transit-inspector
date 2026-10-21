@@ -17,7 +17,7 @@ Shortcuts are written for macOS. On Windows and Linux, use Ctrl instead of Cmd.
 **Search.** Three kinds, as in the Network panel:
 
 - **Filter the list:** type in the filter box to keep the requests whose URL contains the text.
-- **Find in a body:** click into the EDN or Transit view (or the string viewer), then press Cmd+F.
+- **Find in a body:** click into the EDN or Transit view (or the string viewer), then press Cmd+F. The find bar shows how many matches there are, and which one is selected once you step through them with Enter (Shift+Enter goes back).
 - **Search all requests:** press Cmd+F anywhere else in the panel, or click the magnifier in the toolbar. Type and press Enter. The Search pane lists every request with a match, with every matching line under it, in the payload or the response. Turn on `.*` for a regular expression and `Aa` to match case. Click a line to open that request with the match selected; Cmd+G then steps through the other matches in that body. The results stay until you search again or click Refresh.
 
 **Select a form.** Double-click an opening or closing bracket in the EDN view to select the whole map, vector, list or set. Press Cmd+I to expand the selection to the enclosing form, step by step, like Calva.

@@ -24,6 +24,7 @@ import { styleTags, tags } from "@lezer/highlight";
 import { clojureLanguage } from "@nextjournal/lang-clojure";
 import { useEffect, useRef } from "preact/hooks";
 import { enclosingForm, formAt, type PathNode } from "../edn/print";
+import { FindBar } from "./find-bar";
 import type { Reveal } from "./search";
 
 /** `text` is plain text with control characters made visible, e.g. a string's contents. */
@@ -158,6 +159,15 @@ const viewerTheme = EditorView.theme({
     cursor: "pointer",
   },
   ".cm-panel.cm-search [name=close]:hover": { backgroundColor: "var(--hover)", color: "var(--fg)" },
+  // DevTools' find bars (measured in Chrome 154) put the count after their arrow buttons, next to the close button.
+  // Here it sits at the far end, so its changing width never moves the other controls.
+  ".cm-search-count": {
+    marginLeft: "auto",
+    padding: "0 4px",
+    color: "var(--icon)",
+    fontVariantNumeric: "tabular-nums",
+    whiteSpace: "nowrap",
+  },
   ".cm-searchMatch": { backgroundColor: "var(--search-match)" },
   ".cm-searchMatch-selected": { backgroundColor: "var(--search-match-current)" },
   ".cm-tooltip": {
@@ -291,7 +301,7 @@ function extensionsFor({
     ...LANGUAGE[language],
     drawSelection(),
     highlightSelectionMatches(),
-    search({ top: true }),
+    search({ top: true, createPanel: (view) => new FindBar(view) }),
     // Before the default keymap, so their Cmd+I and Enter win.
     ...(forms ? formSelection(forms) : []),
     ...(chips ? stringChips(chips) : []),
