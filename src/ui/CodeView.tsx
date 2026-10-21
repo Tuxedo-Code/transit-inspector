@@ -123,6 +123,9 @@ const viewerTheme = EditorView.theme({
   ".cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label": { margin: "0" },
   ".cm-textfield": {
     width: "200px",
+    // A field's minimum size is about 20 characters of its font, wider than a narrow pane with wider fonts (Linux);
+    // it shrinks instead, clear of the close button, which sits in the bar's right padding.
+    minWidth: "0",
     height: "22px",
     padding: "0 8px",
     border: "1px solid transparent",
