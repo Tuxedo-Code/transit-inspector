@@ -2,7 +2,7 @@
 
 Source of truth for product and architecture decisions. If an implementation needs to deviate, update this file in the same change and say why.
 
-Last updated: 2026-10-10
+Last updated: 2026-10-21
 
 ## Goal
 
@@ -171,7 +171,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - **Default editor behavior**, with one custom click behavior (form selection, below):
   - normal mouse/keyboard selection, Cmd+A and Cmd+C, including long strings and selections larger than the screen;
   - folding arrows in the gutter of the EDN pane for maps, vectors, lists and sets, with everything unfolded by default (the raw pane has no folding since it is not re-formatted);
-  - Cmd+F search within the pane (CodeMirror's search panel), with DevTools' own search bar kept out (see "Search" below);
+  - Cmd+F search within the pane (the find bar: CodeMirror's search panel with a match count, see "Find bar" below), with DevTools' own search bar kept out (see "Search" below);
   - large documents stay fast because the editor only draws the visible part.
 - **Form selection** (EDN pane only), to copy a nested value out of a large body:
   - double-clicking an opening or closing bracket (`{ [ ( #{ } ] )`) selects the whole form. Natively it would select only the bracket, so nothing is lost; double-clicking anything else, including brackets inside strings, selects a word as usual;
@@ -212,7 +212,14 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
   - **Snapshot:** new requests don't change the results until Refresh. Requests that Clear or a navigation removed drop out.
   - **Clicking a match** opens its request at the match: the list row is selected and scrolled into view, the body's tab opened, the match selected and scrolled to. DevTools only opens the Response tab; selecting the match is ours. The search carries over to that editor's find bar, so Cmd+F opens it filled in and Cmd+G steps on. If the view mode hides the match's pane, it switches to side by side, which shows the match without hiding the pane the user chose.
   - **Speed:** the search yields to the panel about every 16 ms. Each body's searched text is cached (not the EDN pane's path index, to bound memory). A 3 MB body decodes and searches in about 150 ms.
-  - Not done: arrow-key navigation in the results (DevTools' tree has it), the match count in the find bar, searching headers and URLs (the URL filter covers URLs).
+  - Not done: arrow-key navigation in the results (DevTools' tree has it), searching headers and URLs (the URL filter covers URLs).
+- **Find bar** (`src/ui/find-bar.ts`): CodeMirror's search panel, ported so it can show the match count like DevTools' own find bars (measured in Chrome 154 on 2026-10-21). No replace row: the editors are read-only.
+  - **Count:** in DevTools' wording: "3 of 12" when a match is selected, "12 matches" or "1 match" when none is, "0 of 0" when there are none, nothing without a query. No digit grouping ("1 of 1234"). DevTools' color (`--icon`) and tabular digits, in a polite live region labeled "Shows result 3 of 12".
+  - **Place:** at the bar's far end, before its close button. DevTools puts it right after its arrow buttons, which sit at its end; here the buttons come first, and at the end the count's changing width never moves them.
+  - **Selected match:** typing doesn't select one, as in CodeMirror; Enter, Shift+Enter, Cmd+G and the buttons do. A match opened from the Search pane counts as selected.
+  - **Exact:** counted with CodeMirror's own search cursor, so the count agrees with the highlights, "by word" and escapes like `\n`. An invalid pattern shows "0 of 0", as CodeMirror highlights nothing (DevTools searches it as plain text instead).
+  - **Speed:** that cursor normalizes every character, so plain text takes about 0.4 s to count in the 3 MB sample's 5 MB of EDN, with or without matches. The count runs in 16 ms slices like the Search pane, a 64K-character chunk per cursor, so typing never waits; it shows once done, at once for bodies that count within a frame. A regular expression runs natively (5 MB in under 0.1 s) and is counted a match per step.
+  - Not done: jumping to the first match while typing (DevTools does; here it would move the cursor, the path and the string viewer on every keystroke).
 - **Side by side:** each pane scrolls on its own horizontally. Vertical scroll sync is a later nice-to-have.
 
 ### Look and feel

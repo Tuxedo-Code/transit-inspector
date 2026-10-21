@@ -174,8 +174,8 @@ export function searchRow(row: RequestRow, query: Query): RequestMatches | null 
   return { row, bodies, count: bodies.reduce((sum, body) => sum + body.matches.length, 0) };
 }
 
-/** How long the search runs before letting the panel handle input and paint. */
-const SLICE_MS = 16;
+/** How long a search (or a find bar's count) runs before letting the panel handle input and paint. */
+export const SLICE_MS = 16;
 
 const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 

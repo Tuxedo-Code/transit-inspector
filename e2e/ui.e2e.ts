@@ -2,7 +2,7 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { EditorView } from "@codemirror/view";
-import puppeteer, { type Browser, type Page } from "puppeteer";
+import puppeteer, { type Browser, type KeyInput, type Page } from "puppeteer";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -163,6 +163,14 @@ async function doubleClickEdn(offset: number, half: "left" | "right"): Promise<v
   await page.mouse.click(point.x, point.y, { count: 2 });
 }
 
+/** Presses Cmd+`key` (Ctrl+`key` on Linux and Windows). */
+async function pressMod(key: KeyInput): Promise<void> {
+  const mod = process.platform === "darwin" ? "Meta" : "Control";
+  await page.keyboard.down(mod);
+  await page.keyboard.press(key);
+  await page.keyboard.up(mod);
+}
+
 const ednText = () => page.$eval(".pane .cm-content", (content) => (content as HTMLElement).innerText);
 const pressedViewMode = () => page.$eval(".segmented button.selected", (button) => button.textContent);
 
@@ -298,14 +306,11 @@ describe("detail view", () => {
   });
 
   it("expands the selection form by form with Cmd+I, up to the whole multi-MB body", async () => {
-    const mod = process.platform === "darwin" ? "Meta" : "Control";
     await selectRow("large");
     await clickInEdn(":row/id");
     const sizes: number[] = [];
     for (let press = 0; press < 8; press++) {
-      await page.keyboard.down(mod);
-      await page.keyboard.press("i");
-      await page.keyboard.up(mod);
+      await pressMod("i");
       const { from, to } = await ednSelection();
       if (to - from === sizes.at(-1)) break;
       sizes.push(to - from);
@@ -364,11 +369,8 @@ describe("detail view", () => {
     ]);
 
     // Select all and copy gives the string itself, not its escaped EDN form.
-    const mod = process.platform === "darwin" ? "Meta" : "Control";
     await page.click(".string-viewer .cm-content");
-    await page.keyboard.down(mod);
-    await page.keyboard.press("a");
-    await page.keyboard.up(mod);
+    await pressMod("a");
     const copied = await page.$eval(".string-viewer .cm-content", (content) => {
       const clipboardData = new DataTransfer();
       content.dispatchEvent(new ClipboardEvent("copy", { clipboardData, bubbles: true, cancelable: true }));
@@ -390,9 +392,7 @@ describe("detail view", () => {
 
     // Cmd+F in the viewer searches the viewer.
     await page.click(".string-viewer .cm-content");
-    await page.keyboard.down(mod);
-    await page.keyboard.press("f");
-    await page.keyboard.up(mod);
+    await pressMod("f");
     await page.waitForSelector(".string-viewer .cm-search");
     expect(await page.$$(".cm-search")).toHaveLength(1);
 
@@ -414,10 +414,7 @@ describe("detail view", () => {
     // Not part of the text: neither drawn as text nor copied.
     expect(await ednText()).not.toContain("13 lines");
     await page.click(".pane .cm-content");
-    const mod = process.platform === "darwin" ? "Meta" : "Control";
-    await page.keyboard.down(mod);
-    await page.keyboard.press("a");
-    await page.keyboard.up(mod);
+    await pressMod("a");
     const copied = await page.$eval(".pane .cm-content", (content) => {
       const clipboardData = new DataTransfer();
       content.dispatchEvent(new ClipboardEvent("copy", { clipboardData, bubbles: true, cancelable: true }));
@@ -572,10 +569,7 @@ describe("detail view", () => {
   it("copies a whole multi-MB body with select all, although only visible lines are drawn", async () => {
     await selectRow("large");
     await page.click(".pane .cm-content");
-    const mod = process.platform === "darwin" ? "Meta" : "Control";
-    await page.keyboard.down(mod);
-    await page.keyboard.press("a");
-    await page.keyboard.up(mod);
+    await pressMod("a");
     const copied = await page.$eval(".pane .cm-content", (content) => {
       const clipboardData = new DataTransfer();
       content.dispatchEvent(new ClipboardEvent("copy", { clipboardData, bubbles: true, cancelable: true }));
@@ -645,13 +639,144 @@ describe("detail view", () => {
   });
 });
 
+describe("find bar", () => {
+  /** The match count in the find bar under `scope`: its text, and its label for screen readers. */
+  const findCount = (scope: string) =>
+    page.$eval(`${scope} .cm-search-count`, (count) => ({
+      text: count.textContent,
+      label: count.getAttribute("aria-label"),
+    }));
+  /** Waits for the count to read `text`; on a timeout, the error says what the query and the count were. */
+  async function waitForCount(scope: string, text: string, timeout?: number): Promise<void> {
+    try {
+      await page.waitForFunction(
+        (scope, text) => document.querySelector(`${scope} .cm-search-count`)?.textContent === text,
+        timeout === undefined ? {} : { timeout },
+        scope,
+        text,
+      );
+    } catch (error) {
+      const state = await page.$eval(`${scope} .cm-search`, (bar) => ({
+        query: (bar.querySelector("input[name=search]") as HTMLInputElement).value,
+        count: bar.querySelector(".cm-search-count")?.textContent,
+      }));
+      throw new Error(`Expected the count "${text}", got ${JSON.stringify(state)}`, { cause: error });
+    }
+  }
+
+  /** Puts the cursor at the start of the editor under `scope` and opens its find bar. */
+  async function openFindBar(scope: string): Promise<void> {
+    await page.$eval(`${scope} .cm-content`, (content) => {
+      const { view } = (content as unknown as ViewDom).cmTile.root;
+      view.dispatch({ selection: { anchor: 0 } });
+      view.focus();
+    });
+    await pressMod("f");
+    await page.waitForSelector(`${scope} .cm-search input[name=search]`);
+  }
+
+  /** Replaces the query in the find bar under `scope`. Cmd+A doesn't select a plain field's text in headless Chrome. */
+  async function typeQuery(scope: string, text: string): Promise<void> {
+    await page.click(`${scope} .cm-search input[name=search]`, { count: 3 });
+    if (text === "") await page.keyboard.press("Backspace");
+    else await page.keyboard.type(text);
+  }
+
+  it("counts the matches and tells which one is selected, in DevTools' wording", async () => {
+    await selectRow("42");
+    await openFindBar(".pane");
+    expect(await findCount(".pane")).toEqual({ text: "", label: null });
+
+    await page.keyboard.type(":item/sku");
+    await waitForCount(".pane", "3 matches");
+    expect((await findCount(".pane")).label).toBe("3 matches");
+    await page.keyboard.press("Enter");
+    await waitForCount(".pane", "1 of 3");
+    expect((await findCount(".pane")).label).toBe("Shows result 1 of 3");
+    await page.keyboard.press("Enter");
+    await waitForCount(".pane", "2 of 3");
+    await page.keyboard.down("Shift");
+    await page.keyboard.press("Enter");
+    await page.keyboard.up("Shift");
+    await waitForCount(".pane", "1 of 3");
+    // Moving the cursor off the match.
+    await clickInEdn(":user/name");
+    await waitForCount(".pane", "3 matches");
+
+    await typeQuery(".pane", ":ITEM/SKU");
+    await waitForCount(".pane", "3 matches");
+    await page.click(".pane .cm-search input[name=case]");
+    await waitForCount(".pane", "0 of 0");
+    expect((await findCount(".pane")).label).toBe("Shows result 0 of 0");
+    await page.click(".pane .cm-search input[name=case]");
+
+    await page.click(".pane .cm-search input[name=re]");
+    await typeQuery(".pane", ":item/(sku|qty)");
+    await waitForCount(".pane", "6 matches");
+    // An invalid pattern finds nothing.
+    await typeQuery(".pane", ":item/(sku");
+    await waitForCount(".pane", "0 of 0");
+    await typeQuery(".pane", "");
+    await waitForCount(".pane", "");
+  });
+
+  it("agrees with the Search pane, and counts a result opened from it", async () => {
+    await page.click("button[aria-label=Search]");
+    await page.keyboard.type(":item/sku");
+    await page.keyboard.press("Enter");
+    await page.waitForSelector(".search-match");
+    // 42 comes first: its match rows run up to the next request's row.
+    const rows42 = await page.$$eval(".search-results-content > *", (items) => {
+      const next = items.findIndex((item, i) => i > 0 && item.classList.contains("search-request"));
+      return items.slice(1, next).filter((item) => item.classList.contains("search-match")).length;
+    });
+    expect(rows42).toBe(3);
+    await page.click(".search-match");
+    await page.waitForFunction(() => document.querySelector(".summary .url")?.textContent?.endsWith("/users/42"));
+    await page.waitForSelector(".pane .cm-content");
+    // Focusing the editor keeps its selection, unlike a click.
+    await page.focus(".pane .cm-content");
+    await pressMod("f");
+    await waitForCount(".pane", "1 of 3");
+  });
+
+  it("counts in the string viewer's find bar too", async () => {
+    await selectRow("payments");
+    await page.click(".cm-string-chip");
+    await page.waitForSelector(".string-viewer .cm-content");
+    await openFindBar(".string-viewer");
+    await page.keyboard.type("at ");
+    const expected = ((await viewer()).text.toLowerCase().match(/at /g) ?? []).length;
+    expect(expected).toBeGreaterThan(1);
+    await waitForCount(".string-viewer", `${expected} matches`);
+    // The EDN pane's own find bar isn't open.
+    expect(await page.$$(".cm-search")).toHaveLength(1);
+  });
+
+  it("counts a multi-MB body in slices, without blocking typing", async () => {
+    await selectRow("large");
+    await openFindBar(".pane");
+    await page.evaluate(() => {
+      const durations: number[] = [];
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) durations.push(entry.duration);
+      }).observe({ type: "longtask" });
+      (window as unknown as { longTasks: number[] }).longTasks = durations;
+    });
+    // 5 MB of EDN takes a few hundred ms to count (src/ui/find-bar.ts); a new query drops the count in progress.
+    await page.keyboard.type("e");
+    await page.keyboard.type("zzz");
+    await waitForCount(".pane", "0 of 0");
+    await typeQuery(".pane", "e");
+    await waitForCount(".pane", "200001 matches", 10_000);
+    // Counted in one go, it takes one task of about 260 ms (measured on an M-series Mac); in slices, no task reaches
+    // the 50 ms that makes a long task.
+    const longest = await page.evaluate(() => Math.max(0, ...(window as unknown as { longTasks: number[] }).longTasks));
+    expect(longest).toBeLessThan(100);
+  });
+});
+
 describe("search all requests", () => {
-  const MOD = process.platform === "darwin" ? "Meta" : "Control";
-  const pressModF = async () => {
-    await page.keyboard.down(MOD);
-    await page.keyboard.press("f");
-    await page.keyboard.up(MOD);
-  };
   const searchFocused = () => page.evaluate(() => document.activeElement?.matches(".search-field input"));
   const summary = () => page.$eval(".search-summary", (element) => element.textContent);
 
@@ -685,20 +810,20 @@ describe("search all requests", () => {
   it("opens with Cmd+F outside the editors, and leaves Cmd+F in an editor to its find bar", async () => {
     // Nothing open, focus on the page.
     await page.click(".request-list th.name");
-    await pressModF();
+    await pressMod("f");
     await page.waitForSelector(".search-sidebar:not([hidden])");
     expect(await searchFocused()).toBe(true);
 
     // A request open, focus on its header.
     await selectRow("42");
     await page.click(".summary .url");
-    await pressModF();
+    await pressMod("f");
     expect(await searchFocused()).toBe(true);
     expect(await page.$(".cm-search")).toBeNull();
 
     // In an editor: the editor's own find bar.
     await page.click(".pane .cm-content");
-    await pressModF();
+    await pressMod("f");
     await page.waitForSelector(".pane .cm-search");
     expect(await page.evaluate(() => document.activeElement?.matches(".cm-search input[name=search]"))).toBe(true);
   });
@@ -753,7 +878,7 @@ describe("search all requests", () => {
     expect((await ednSelection()).text).toBe(":item/sku");
 
     await page.click(".pane .cm-content");
-    await pressModF();
+    await pressMod("f");
     await page.waitForSelector(".pane .cm-search");
     expect(await page.$eval(".cm-search input[name=search]", (input) => (input as HTMLInputElement).value)).toBe(
       ":item/sku",
@@ -771,9 +896,7 @@ describe("search all requests", () => {
     expect(first.text).toBe(":item/sku");
     // Focusing the editor keeps its selection, unlike a click.
     await page.focus(".pane .cm-content");
-    await page.keyboard.down(MOD);
-    await page.keyboard.press("g");
-    await page.keyboard.up(MOD);
+    await pressMod("g");
     const next = await ednSelection();
     expect(next.text).toBe(":item/sku");
     expect(next.from).toBe(first.doc.indexOf(":item/sku", first.to));
@@ -859,13 +982,23 @@ describe("screenshots for review", () => {
       await screenshot(`form-select-${scheme}`);
       await clickInEdn(":order/status");
       await screenshot(`edn-${scheme}`);
-      const mod = process.platform === "darwin" ? "Meta" : "Control";
-      await page.keyboard.down(mod);
-      await page.keyboard.press("f");
-      await page.keyboard.up(mod);
+      await pressMod("f");
       await page.keyboard.type("order");
       await screenshot(`search-${scheme}`);
       await page.keyboard.press("Escape");
+      // The find bar side by side in a narrow panel, with a match selected.
+      await page.setViewport({ width: 560, height: 650, deviceScaleFactor: 2 });
+      await page.click(".segmented button:nth-child(2)");
+      await page.waitForFunction(() => document.querySelectorAll(".cm-editor").length === 2);
+      await page.focus(".pane .cm-content");
+      await pressMod("f");
+      await page.waitForSelector(".pane .cm-search");
+      await page.keyboard.type("order");
+      await page.keyboard.press("Enter");
+      await screenshot(`search-narrow-${scheme}`);
+      await page.keyboard.press("Escape");
+      await page.click(".segmented button:nth-child(1)");
+      await page.setViewport({ width: 1300, height: 650, deviceScaleFactor: 2 });
       await selectRow("payments");
       await screenshot(`string-chip-${scheme}`);
       await page.hover(".cm-string-chip");

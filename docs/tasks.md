@@ -386,6 +386,15 @@ From spec "Later". Not to be started until v1 is done:
   - Tests that read the editor right after opening a request must wait for `.cm-content`: CodeMirror mounts in an effect.
   - `store/make-images.ts` now moves the mouse away first: the real system pointer over the visible window gave a row its hover color. Screenshot 5 shows the Search pane instead of the find bar.
   - Verified: lint, typecheck, unit, UI and real-DevTools e2e in Chrome and Brave; the new UI tests also pass with every CPU core busy.
+- [x] Match count in the editors' find bar (spec "Find bar")
+  - Why: CodeMirror's find bar highlights matches but never says how many there are or which one is selected; DevTools' own find bars do ("3 of 12").
+  - How: our own port of CodeMirror's search panel, with the count in DevTools' wording, counted with CodeMirror's own search cursor.
+  - Done when: unit and e2e tests pass (Chrome and Brave); find bar screenshots in light and dark, wide and narrow, look native next to DevTools' find bar.
+  - DevTools' wording and styles come from its `SearchableView` (`devtools://devtools/bundled/ui/legacy/legacy.js`, read from a DevTools page with `fetch`) and from Puppeteer in the Elements panel's find bar, which is the same component as Sources' and Network's.
+  - CodeMirror's `SearchPanel` isn't exported, so `FindBar` ports it (no replace row). Its count can't come from one cursor over the whole body: a plain-text `next()` that finds nothing scans the whole 5 MB of EDN in one call (about 0.4 s), so `MatchCounter` gives each cursor a 64K-character chunk. Chunk edges are subtle: a chunk resumes at the last match's end, its cursor reaches past the chunk by twice the normalized query, and by word a chunk ends after a non-word character, because CodeMirror's word test reads the characters around a match from the cursor's own text. `find-bar.test.ts` compares chunks of every size with one whole-body cursor; keep it that way.
+  - The UI test for the 3 MB sample checks that no long task (50 ms or more, `PerformanceObserver`) comes near 100 ms; counted in one go it was one task of about 260 ms.
+  - Cmd+A doesn't select a plain `<input>`'s text in headless Chrome on macOS (CodeMirror handles it in the editor itself), so tests replace a find bar query with a triple-click. `e2e/ui.e2e.ts` now has one `pressMod(key)` for Cmd/Ctrl shortcuts.
+  - Verified: lint, typecheck, unit, UI and real-DevTools e2e in Chrome and Brave; the find bar UI tests 3 runs in a row with every core busy; screenshots `search-{light,dark}` and the new `search-narrow-{light,dark}` (560px, side by side, where the count takes a row of its own). The store screenshots don't show the find bar, so they weren't regenerated.
 - [ ] Vertical scroll sync between panes
 - [ ] Dimmed parent path for colliding names
 - [ ] Web Worker decoding (only if measured need)
