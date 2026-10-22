@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.8.0...v0.9.0) (2026-10-22)
+
+
+### Features
+
+* show the match count in the editors' find bar ([99fd4ee](https://github.com/Tuxedo-Code/transit-inspector/commit/99fd4ee1d43b76b99e410cf5f4c65233da70b09f))
+
+
+### Bug Fixes
+
+* keep the find bar's field clear of its close button in narrow panes ([f9274f3](https://github.com/Tuxedo-Code/transit-inspector/commit/f9274f37fcca8c0d6b39e821356510911cae83e5))
+
 ## [0.8.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.7.0...v0.8.0) (2026-10-10)
 
 
