@@ -421,3 +421,6 @@ From spec "Later". Not to be started until v1 is done:
   - Cause: the rebuild on `onNavigated` (also fired by SPA `pushState`) reads `getHAR()`, which includes requests still in flight; their rows were kept and the finished entry from `onRequestFinished` was ignored as a duplicate.
   - Fix: requests still waiting (status 0, no `_error`) aren't listed (`isListed` in `src/har.ts`); `RequestStore.add` replaces a row with the same id, newest entry wins. What `getHAR()` holds mid-flight: spec "Capture and navigation".
   - Covered by unit tests and a real-DevTools test with `/api/slow` and `/api/drip` in `e2e/test-server.ts`.
+- [x] Link the GitHub repo from the extension's menu
+  - `homepage_url` in the manifest; no panel code, since the panel opening URLs is what the privacy tripwire forbids. Where it shows up and the Web Store trade-off: spec "Architecture".
+  - Verified with Puppeteer: `chrome://extensions/?id=<id>` shows "Open extension website", and clicking it (`pierce/#extensionWebsite`) opens the repo in a new tab. The toolbar menu is browser UI Puppeteer can't reach; it uses the same URL.

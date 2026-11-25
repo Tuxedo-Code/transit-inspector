@@ -4,7 +4,16 @@ import { describe, expect, it } from "vitest";
 import { isValidManifestVersion, manifestIcons, manifestWithVersion } from "./manifest";
 
 // Deliberate copies of what docs/spec.md "Privacy" allows: change the spec first, then these.
-const ALLOWED_KEYS = ["content_security_policy", "description", "devtools_page", "icons", "manifest_version", "name"];
+const ALLOWED_KEYS = [
+  "content_security_policy",
+  "description",
+  "devtools_page",
+  "homepage_url",
+  "icons",
+  "manifest_version",
+  "name",
+];
+const HOMEPAGE_URL = "https://github.com/Tuxedo-Code/transit-inspector";
 const CSP =
   "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
@@ -17,6 +26,10 @@ describe("source manifest (privacy is binding, see docs/spec.md 'Privacy')", () 
 
   it("keeps the CSP that blocks network access", () => {
     expect(manifest.content_security_policy).toEqual({ extension_pages: CSP });
+  });
+
+  it("links only to the repo, a fixed URL the browser opens", () => {
+    expect(manifest.homepage_url).toBe(HOMEPAGE_URL);
   });
 
   it("has every icon size the Web Store and Chrome use, each a PNG of that size", () => {
