@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.9.0...v0.9.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** bump the runtime group with 3 updates ([#17](https://github.com/Tuxedo-Code/transit-inspector/issues/17)) ([3638de0](https://github.com/Tuxedo-Code/transit-inspector/commit/3638de07343e6fc08d1adf87091af8c832eb3f2c))
+
 ## [0.9.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.8.0...v0.9.0) (2026-10-22)
 
 
