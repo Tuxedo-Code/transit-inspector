@@ -111,3 +111,5 @@ Proposed: give the toolbar icon a job, such as a badge counting the tab's Transi
 Verdict: rejected for privacy. Each option adds a background service worker, permissions or both to a manifest that has neither (spec "Privacy", manifest pin), for little gain.
 
 Would change if: a toolbar feature solves a real, repeated pain and needs no new manifest keys beyond `action`.
+
+The extension's menu does link to the GitHub repo, through `homepage_url` (spec "Architecture"): the browser shows and opens it, with no permission, background worker or code of ours.

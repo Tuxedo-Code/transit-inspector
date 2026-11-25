@@ -1,6 +1,6 @@
 # User guide
 
-How to use the Transit panel, what it can't do, and what to try when something looks wrong. To install it, see the [README](../README.md#install).
+How to use the Transit panel, what it can't do, and what to try when something looks wrong. To install it, see the [README](../README.md#install). To get back to the project's GitHub page from the browser, right-click Transit Inspector in the extensions menu (the puzzle icon) and choose its name, or use "Open extension website" on its details page.
 
 ## Using the panel
 
