@@ -79,27 +79,39 @@ export async function pressShortcut(devtools: Page, ...keys: KeyInput[]): Promis
   for (const modifier of modifiers.reverse()) await devtools.keyboard.up(modifier);
 }
 
-/** What DevTools itself shows around the panel: its search bar, the Console drawer, the command menu. */
-export function devtoolsUi(devtools: Page): Promise<{ searchBar: boolean; drawer: boolean; commandMenu: boolean }> {
-  return devtools.evaluate(() => {
-    let searchBar = false;
-    let consoleTabs = 0;
-    let commandMenu = false;
-    const walk = (root: Document | ShadowRoot) => {
-      for (const el of root.querySelectorAll<HTMLElement>("*")) {
+/**
+ * DevTools builds its UI from nested shadow roots. Puppeteer's `>>>` combinator matches inside all of them, so
+ * `selector` is a plain CSS selector.
+ */
+const deep = (selector: string) => `>>> ${selector}`;
+
+/** The trimmed text of each visible element in DevTools that matches `selector`. */
+function visibleTexts(devtools: Page, selector: string): Promise<string[]> {
+  return devtools.$$eval(deep(selector), (elements) =>
+    elements
+      .filter((el) => {
         const rect = el.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          if (el.classList.contains("search-bar")) searchBar = true;
-          if (el.classList.contains("filtered-list-widget")) commandMenu = true;
-          // The drawer adds a second Console tab next to the main one.
-          if (el.getAttribute("role") === "tab" && el.textContent?.trim() === "Console") consoleTabs++;
-        }
-        if (el.shadowRoot) walk(el.shadowRoot);
-      }
-    };
-    walk(document);
-    return { searchBar, drawer: consoleTabs > 1, commandMenu };
-  });
+        return rect.width > 0 && rect.height > 0;
+      })
+      .map((el) => el.textContent?.trim() ?? ""),
+  );
+}
+
+/** What DevTools itself shows around the panel: its search bar, the Console drawer, the command menu. */
+export async function devtoolsUi(
+  devtools: Page,
+): Promise<{ searchBar: boolean; drawer: boolean; commandMenu: boolean }> {
+  const [searchBars, tabs, commandMenus] = await Promise.all([
+    visibleTexts(devtools, ".search-bar"),
+    visibleTexts(devtools, '[role="tab"]'),
+    visibleTexts(devtools, ".filtered-list-widget"),
+  ]);
+  return {
+    searchBar: searchBars.length > 0,
+    // The drawer adds a second Console tab next to the main one.
+    drawer: tabs.filter((tab) => tab === "Console").length > 1,
+    commandMenu: commandMenus.length > 0,
+  };
 }
 
 async function waitForTransitTab(browser: Browser, devtools: Page, click: boolean): Promise<void> {
@@ -110,21 +122,14 @@ async function waitForTransitTab(browser: Browser, devtools: Page, click: boolea
   // Say why, so a flaky failure on CI can be diagnosed from its log and screenshot alone.
   mkdirSync(SCREENSHOTS, { recursive: true });
   await devtools.screenshot({ path: join(SCREENSHOTS, "devtools-without-transit-tab.png") }).catch(() => {});
-  const state = await devtools.evaluate(() => {
-    const tabs: string[] = [];
-    const collect = (root: Document | ShadowRoot) => {
-      for (const el of root.querySelectorAll('[role="tab"]')) tabs.push(el.textContent?.trim() ?? "");
-      for (const el of root.querySelectorAll("*")) if (el.shadowRoot) collect(el.shadowRoot);
-    };
-    collect(document);
-    return { tabs, width: innerWidth, readyState: document.readyState };
-  });
+  const tabs = await devtools.$$eval(deep('[role="tab"]'), (els) => els.map((el) => el.textContent?.trim() ?? ""));
+  const state = await devtools.evaluate(() => ({ width: innerWidth, readyState: document.readyState }));
   const extensionPages = browser
     .targets()
     .map((target) => target.url())
     .filter((url) => url.startsWith("chrome-extension://"));
   throw new Error(
-    `Transit tab not found in DevTools. DevTools tabs: ${JSON.stringify(state.tabs)}, width ${state.width}px, ` +
+    `Transit tab not found in DevTools. DevTools tabs: ${JSON.stringify(tabs)}, width ${state.width}px, ` +
       `document ${state.readyState}; extension pages: ${JSON.stringify(extensionPages)}. ` +
       "Screenshot: e2e/screenshots/devtools-without-transit-tab.png",
   );
@@ -145,42 +150,27 @@ export async function showDevtoolsTab(devtools: Page, name: string): Promise<voi
  * toolbar the first time it is shown.
  */
 export async function setNetworkKeepLog(devtools: Page, on: boolean): Promise<void> {
-  const found = await devtools.evaluate((on) => {
-    const find = (root: Document | ShadowRoot): HTMLInputElement | null => {
-      for (const el of root.querySelectorAll("devtools-checkbox")) {
-        const input = el.shadowRoot?.querySelector("input");
-        if (input && el.shadowRoot?.textContent?.includes("Keep log") && el.getBoundingClientRect().width > 0) {
-          return input;
-        }
-      }
-      for (const el of root.querySelectorAll("*")) {
-        const found = el.shadowRoot && find(el.shadowRoot);
-        if (found) return found;
-      }
-      return null;
-    };
-    const input = find(document);
-    if (input && input.checked !== on) input.click();
-    return input?.checked === on;
-  }, on);
+  const found = await devtools.$$eval(
+    deep("devtools-checkbox"),
+    (checkboxes, on) => {
+      const checkbox = checkboxes.find(
+        (el) => el.shadowRoot?.textContent?.includes("Keep log") && el.getBoundingClientRect().width > 0,
+      );
+      const input = checkbox?.shadowRoot?.querySelector("input");
+      if (input && input.checked !== on) input.click();
+      return input?.checked === on;
+    },
+    on,
+  );
   if (!found) throw new Error("No Keep log checkbox in the Network panel");
 }
 
 function findTab(devtools: Page, name: string, click: boolean): Promise<boolean> {
-  return devtools.evaluate(
-    (name, click) => {
-      const find = (root: Document | ShadowRoot): HTMLElement | null => {
-        for (const el of root.querySelectorAll<HTMLElement>('[role="tab"]')) {
-          if (el.textContent?.trim() === name) return el;
-        }
-        for (const el of root.querySelectorAll("*")) {
-          const found = el.shadowRoot && find(el.shadowRoot);
-          if (found) return found;
-        }
-        return null;
-      };
-      const tab = find(document);
-      if (!tab) return false;
+  return devtools.$$eval(
+    deep('[role="tab"]'),
+    (tabs, name, click) => {
+      const tab = tabs.find((el) => el.textContent?.trim() === name);
+      if (!(tab instanceof HTMLElement)) return false;
       if (click) {
         tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
         tab.click();
