@@ -35,16 +35,32 @@ const DELIMITER = /[\s,()[\]{}";]/;
 
 const CLOSERS: Record<string, string> = { "(": ")", "[": "]", "{": "}" };
 
-const CHAR_NAMES: Record<string, string> = {
-  newline: "\n",
-  space: " ",
-  tab: "\t",
-  return: "\r",
-  backspace: "\b",
-  formfeed: "\f",
-};
+// Maps rather than objects for lookups by input text: an object would also find inherited names like `constructor`.
 
-const STRING_ESCAPES: Record<string, string> = { t: "\t", r: "\r", n: "\n", "\\": "\\", '"': '"', b: "\b", f: "\f" };
+const CHAR_NAMES = new Map([
+  ["newline", "\n"],
+  ["space", " "],
+  ["tab", "\t"],
+  ["return", "\r"],
+  ["backspace", "\b"],
+  ["formfeed", "\f"],
+]);
+
+const STRING_ESCAPES = new Map([
+  ["t", "\t"],
+  ["r", "\r"],
+  ["n", "\n"],
+  ["\\", "\\"],
+  ['"', '"'],
+  ["b", "\b"],
+  ["f", "\f"],
+]);
+
+const SYMBOLIC_VALUES = new Map([
+  ["Inf", Number.POSITIVE_INFINITY],
+  ["-Inf", Number.NEGATIVE_INFINITY],
+  ["NaN", Number.NaN],
+]);
 
 class Reader {
   private pos = 0;
@@ -116,14 +132,7 @@ class Reader {
   private dispatch(): EdnNode {
     const next = this.text[this.pos + 1];
     if (next === "{") return { type: "set", items: this.items("#") };
-    if (next === "#") {
-      this.pos += 2;
-      const name = this.token();
-      if (name === "Inf") return { type: "float", value: Number.POSITIVE_INFINITY };
-      if (name === "-Inf") return { type: "float", value: Number.NEGATIVE_INFINITY };
-      if (name === "NaN") return { type: "float", value: Number.NaN };
-      throw new ReadError(`Unknown symbolic value ##${name}`);
-    }
+    if (next === "#") return this.symbolic();
     if (next === ":") {
       this.pos += 2;
       return this.namespacedMap(this.token());
@@ -135,6 +144,15 @@ class Reader {
     if (tag === "inst" && value.type === "string") return { type: "inst", value: value.value };
     if (tag === "uuid" && value.type === "string") return { type: "uuid", value: value.value };
     return { type: "tagged", tag, value };
+  }
+
+  /** `##Inf`, `##-Inf` or `##NaN`. */
+  private symbolic(): EdnNode {
+    this.pos += 2;
+    const name = this.token();
+    const value = SYMBOLIC_VALUES.get(name);
+    if (value === undefined) throw new ReadError(`Unknown symbolic value ##${name}`);
+    return { type: "float", value };
   }
 
   /** `#:user{:id 1 :_/raw 2}` is `{:user/id 1 :raw 2}`: unqualified keys get the namespace, `_/` drops it. */
@@ -162,21 +180,24 @@ class Reader {
         this.pos++;
         continue;
       }
-      value += this.text.slice(start, this.pos);
-      const escaped = this.text[this.pos + 1] ?? "";
-      if (escaped === "u") {
-        const hex = this.text.slice(this.pos + 2, this.pos + 6);
-        if (!/^[0-9a-fA-F]{4}$/.test(hex)) throw new ReadError(`Bad \\u escape at ${this.pos}`);
-        value += String.fromCharCode(Number.parseInt(hex, 16));
-        this.pos += 6;
-      } else {
-        const unescaped = STRING_ESCAPES[escaped];
-        if (unescaped === undefined) throw new ReadError(`Unknown escape \\${escaped} at ${this.pos}`);
-        value += unescaped;
-        this.pos += 2;
-      }
+      value += this.text.slice(start, this.pos) + this.escape();
       start = this.pos;
     }
+  }
+
+  /** The character escaped by the backslash at `pos`, e.g. `\n` or `é`; moves past the escape. */
+  private escape(): string {
+    const escaped = this.text[this.pos + 1] ?? "";
+    if (escaped === "u") {
+      const hex = this.text.slice(this.pos + 2, this.pos + 6);
+      if (!/^[0-9a-fA-F]{4}$/.test(hex)) throw new ReadError(`Bad \\u escape at ${this.pos}`);
+      this.pos += 6;
+      return String.fromCharCode(Number.parseInt(hex, 16));
+    }
+    const unescaped = STRING_ESCAPES.get(escaped);
+    if (unescaped === undefined) throw new ReadError(`Unknown escape \\${escaped} at ${this.pos}`);
+    this.pos += 2;
+    return unescaped;
   }
 
   /** `\a`, `\(`, `\newline`, `é`: the first character is taken whatever it is, so `\(` is a char. */
@@ -187,7 +208,7 @@ class Reader {
     while (this.pos < this.text.length && !DELIMITER.test(this.text[this.pos] as string)) this.pos++;
     const name = this.text.slice(start, this.pos);
     if ([...name].length === 1) return name;
-    const named = CHAR_NAMES[name];
+    const named = CHAR_NAMES.get(name);
     if (named !== undefined) return named;
     if (/^u[0-9a-fA-F]{4}$/.test(name)) return String.fromCharCode(Number.parseInt(name.slice(1), 16));
     throw new ReadError(`Unknown character \\${name}`);
