@@ -241,14 +241,15 @@ class Printer {
 
 const BRACKETS = { vector: ["[", "]"], list: ["(", ")"], set: ["#{", "}"] } as const;
 
-const CHAR_NAMES: Record<string, string> = {
-  "\n": "newline",
-  " ": "space",
-  "\t": "tab",
-  "\r": "return",
-  "\b": "backspace",
-  "\f": "formfeed",
-};
+/** A Map, not an object: a malformed Transit char like `~cconstructor` must not find an inherited property. */
+const CHAR_NAMES = new Map([
+  ["\n", "newline"],
+  [" ", "space"],
+  ["\t", "tab"],
+  ["\r", "return"],
+  ["\b", "backspace"],
+  ["\f", "formfeed"],
+]);
 
 function scalar(node: Exclude<EdnNode, { type: "map" | "vector" | "list" | "set" | "tagged" }>): string {
   switch (node.type) {
@@ -272,7 +273,7 @@ function scalar(node: Exclude<EdnNode, { type: "map" | "vector" | "list" | "set"
     case "string":
       return quote(node.value);
     case "char":
-      return `\\${CHAR_NAMES[node.value] ?? node.value}`;
+      return `\\${CHAR_NAMES.get(node.value) ?? node.value}`;
     case "keyword":
       return `:${node.value}`;
     case "symbol":
