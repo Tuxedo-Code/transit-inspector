@@ -6,6 +6,12 @@ export const MAX_ROWS = 1000;
 
 type Listener = (rows: readonly RequestRow[]) => void;
 
+/** The entries of the current page load, leaving out earlier loads' entries that DevTools kept (its "Keep log"). */
+function onPage(entries: RawEntry[], currentPage: string | undefined): RawEntry[] {
+  if (currentPage === undefined) return entries;
+  return entries.filter((raw) => raw.entry.pageref === undefined || raw.entry.pageref === currentPage);
+}
+
 /**
  * Holds the captured rows in start-time order and keeps them in sync with a source.
  * Rows are converted asynchronously (bodies are read lazily), so results from before
@@ -58,20 +64,14 @@ export class RequestStore implements Sink {
    * entries from earlier loads that DevTools kept (its own "Keep log") are ignored. With it, nothing is dropped.
    */
   replace(entries: RawEntry[], currentPage?: string): void {
-    if (!this.keepLog && currentPage !== undefined) {
-      entries = entries.filter((raw) => raw.entry.pageref === undefined || raw.entry.pageref === currentPage);
-    }
+    if (!this.keepLog) entries = onPage(entries, currentPage);
     const ids = new Set(entries.map((raw) => entryId(raw.entry)));
     for (const id of this.cleared) if (!ids.has(id)) this.cleared.delete(id);
     if (this.keepLog) {
       // Rows kept from earlier loads keep their place among requests started in the same millisecond.
-      for (const id of ids) if (!this.arrival.has(id)) this.arrival.set(id, this.nextArrival++);
+      for (const id of ids) this.arrive(id);
     } else {
-      // Keep rows that are still present so their bodies aren't read again.
-      for (const id of this.known.keys()) if (!ids.has(id)) this.known.delete(id);
-      // The replacement list is authoritative for order too (DevTools lists a page load's entries in start order).
-      this.arrival.clear();
-      for (const id of ids) this.arrival.set(id, this.nextArrival++);
+      this.restartWith(ids);
     }
     this.latest.clear();
     this.generation++;
@@ -96,7 +96,7 @@ export class RequestStore implements Sink {
       if (!isListed(raw.entry)) continue;
       const id = entryId(raw.entry);
       if (this.cleared.has(id) || (!replaceKnown && this.known.has(id))) continue;
-      if (!this.arrival.has(id)) this.arrival.set(id, this.nextArrival++);
+      this.arrive(id);
       this.latest.set(id, raw);
       void toRow(raw).then((row) => {
         if (this.latest.get(id) !== raw) return;
@@ -105,6 +105,20 @@ export class RequestStore implements Sink {
         this.insert(row);
       });
     }
+  }
+
+  /** Records when a request first arrived; a request that arrived before keeps its place. */
+  private arrive(id: string): void {
+    if (!this.arrival.has(id)) this.arrival.set(id, this.nextArrival++);
+  }
+
+  /** Makes `ids`, a page load's entries, the only rows, in their order. */
+  private restartWith(ids: Set<string>): void {
+    // Keep rows that are still present so their bodies aren't read again.
+    for (const id of this.known.keys()) if (!ids.has(id)) this.known.delete(id);
+    // The replacement list is authoritative for order too (DevTools lists a page load's entries in start order).
+    this.arrival.clear();
+    for (const id of ids) this.arrive(id);
   }
 
   /** Inserts a row at its start-time position, replacing any earlier row for the same request. */
