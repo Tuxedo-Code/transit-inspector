@@ -171,7 +171,9 @@ async function pressMod(key: KeyInput): Promise<void> {
   await page.keyboard.up(mod);
 }
 
-const ednText = () => page.$eval(".pane .cm-content", (content) => (content as HTMLElement).innerText);
+const ednText = () =>
+  // biome-ignore lint/performance/useDomNodeTextContent: the rendered text, with line breaks between CodeMirror's lines
+  page.$eval(".pane .cm-content", (content) => (content as HTMLElement).innerText);
 const pressedViewMode = () => page.$eval(".segmented button.selected", (button) => button.textContent);
 
 /** Clicks on the first occurrence of `text` inside the EDN pane, placing the cursor there. */
