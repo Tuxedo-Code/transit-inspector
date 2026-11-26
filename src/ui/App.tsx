@@ -1,14 +1,15 @@
+import type { ComponentProps } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { RequestRow } from "../model";
 import type { RequestStore } from "../store";
 import { DetailView } from "./DetailView";
 import { matchesFilter } from "./format";
-import { ClearIcon, FilterIcon, SearchIcon, SidebarIcon } from "./icons";
 import { RequestList } from "./RequestList";
 import { SearchPane } from "./SearchPane";
 import { DETAIL_MIN_WIDTH, LIST_MIN_WIDTH, SEARCH_MIN_WIDTH, Splitter } from "./Splitter";
 import type { Reveal } from "./search";
 import { loadListWidth, loadViewMode, saveKeepLog, saveListWidth, saveViewMode, type ViewMode } from "./settings";
+import { Toolbar } from "./Toolbar";
 
 function useRows(store: RequestStore): readonly RequestRow[] {
   const [rows, setRows] = useState(store.getRows());
@@ -34,6 +35,17 @@ function onModF(open: () => void) {
     event.stopPropagation();
     open();
   };
+}
+
+/** The request list, or why it is empty: no requests at all (`total` 0), or none that match the filter. */
+function ListContent({
+  total,
+  visible,
+  ...listProps
+}: { total: number; visible: readonly RequestRow[] } & Omit<ComponentProps<typeof RequestList>, "rows">) {
+  if (total === 0) return <div class="empty">No Transit requests yet</div>;
+  if (visible.length === 0) return <div class="empty">No requests match the filter</div>;
+  return <RequestList rows={visible} {...listProps} />;
 }
 
 export function App({ store }: { store: RequestStore }) {
@@ -136,69 +148,32 @@ export function App({ store }: { store: RequestStore }) {
         />
       )}
       <div class="workspace">
-        <div class="toolbar">
-          <button
-            type="button"
-            class="icon-button"
-            title={showList ? "Hide request list" : "Show request list"}
-            aria-label={showList ? "Hide request list" : "Show request list"}
-            aria-pressed={!showList}
-            disabled={!selected}
-            onClick={() => setListHidden(!listHidden)}
-          >
-            <SidebarIcon open={showList} />
-          </button>
-          <button type="button" class="icon-button" title="Clear" aria-label="Clear" onClick={() => store.clear()}>
-            <ClearIcon />
-          </button>
-          <div class="separator" />
-          <button
-            type="button"
-            class="icon-button"
-            title="Search"
-            aria-label="Search"
-            aria-pressed={searchOpen}
-            onClick={toggleSearch}
-          >
-            <SearchIcon />
-          </button>
-          <div class="separator" />
-          {/* Named, placed and worded like the Network panel's (Chrome 154). */}
-          <label class="checkbox" title="Don’t clear the list on page reload / navigation">
-            <input type="checkbox" checked={keepLog} onChange={(event) => changeKeepLog(event.currentTarget.checked)} />
-            Keep log
-          </label>
-          <div class="separator" />
-          <label class="filter">
-            <FilterIcon />
-            <input
-              type="search"
-              placeholder="Filter"
-              aria-label="Filter by URL"
-              value={filter}
-              onInput={(event) => setFilter(event.currentTarget.value)}
-            />
-          </label>
-        </div>
+        <Toolbar
+          showList={showList}
+          canHideList={selected !== null}
+          onToggleList={() => setListHidden(!listHidden)}
+          onClear={() => store.clear()}
+          searchOpen={searchOpen}
+          onToggleSearch={toggleSearch}
+          keepLog={keepLog}
+          onKeepLog={changeKeepLog}
+          filter={filter}
+          onFilter={setFilter}
+        />
         <div class="main">
           {/* Always the first child, so opening a request doesn't remount the list and lose its scroll position. */}
           {showList && (
             <div class={`list-pane${selected ? " compact" : ""}`} ref={listPane} style={paneStyle}>
-              {rows.length === 0 ? (
-                <div class="empty">No Transit requests yet</div>
-              ) : visible.length === 0 ? (
-                <div class="empty">No requests match the filter</div>
-              ) : (
-                <RequestList
-                  rows={visible}
-                  selectedId={selectedId}
-                  onSelect={(id) => {
-                    setReveal(null);
-                    setSelectedId(id);
-                  }}
-                  compact={selected !== null}
-                />
-              )}
+              <ListContent
+                total={rows.length}
+                visible={visible}
+                selectedId={selectedId}
+                onSelect={(id) => {
+                  setReveal(null);
+                  setSelectedId(id);
+                }}
+                compact={selected !== null}
+              />
             </div>
           )}
           {showList && selected && (
