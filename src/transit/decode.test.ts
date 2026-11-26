@@ -23,6 +23,7 @@ describe("decodeTransit + printEdn: one case per type", () => {
     ["strings, escaped", '["a\\"b\\\\c\\nd"]', '["a\\"b\\\\c\\nd"]'],
     ["Transit-escaped strings", '["~~tilde","~^caret"]', '["~tilde" "^caret"]'],
     ["chars", '["~cA","~c "]', "[\\A \\space]"],
+    ["malformed chars named like built-in properties", '["~cconstructor"]', "[\\constructor]"],
     ["keywords", '["~:a","~:user/id"]', "[:a :user/id]"],
     ["symbols", '["~$foo/bar"]', "[foo/bar]"],
     ["uuids", '["~u550e8400-e29b-41d4-a716-446655440000"]', '[#uuid "550e8400-e29b-41d4-a716-446655440000"]'],
