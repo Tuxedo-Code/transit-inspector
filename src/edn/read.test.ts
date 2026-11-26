@@ -29,7 +29,7 @@ describe("readEdn", () => {
       "[0 -7 7 42N -1/3 1.0 -0.0 1.5e10 1.2345678E7 10.00M 3M ##Inf ##-Inf ##NaN]",
     );
     expect(roundTrip("[0x1a2B -0xff]")).toBe("[0x1a2B -0xff]");
-    for (const bad of ["007", "1x", "0xG", "2r101", "1/0", "1.2.3"]) fails(bad);
+    for (const bad of ["007", "1x", "0xG", "2r101", "1/0", "1.2.3", "##Foo", "##constructor"]) fails(bad);
   });
 
   it("reads strings with escapes, and characters", () => {
@@ -43,6 +43,8 @@ describe("readEdn", () => {
       String.raw`[\a \( \newline \space \tab \é \é]`,
     );
     for (const bad of ['"open', String.raw`"\q"`, String.raw`"\u12"`, String.raw`\nope`, "\\"]) fails(bad);
+    // A character name that is also a property every object inherits.
+    fails(String.raw`\constructor`);
   });
 
   it("reads collections, keeping map and set order", () => {
