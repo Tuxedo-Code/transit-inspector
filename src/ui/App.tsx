@@ -8,7 +8,7 @@ import { RequestList } from "./RequestList";
 import { SearchPane } from "./SearchPane";
 import { DETAIL_MIN_WIDTH, LIST_MIN_WIDTH, SEARCH_MIN_WIDTH, Splitter } from "./Splitter";
 import type { Reveal } from "./search";
-import { loadListWidth, loadViewMode, saveListWidth, saveViewMode, type ViewMode } from "./settings";
+import { loadListWidth, loadViewMode, saveKeepLog, saveListWidth, saveViewMode, type ViewMode } from "./settings";
 
 function useRows(store: RequestStore): readonly RequestRow[] {
   const [rows, setRows] = useState(store.getRows());
@@ -43,6 +43,7 @@ export function App({ store }: { store: RequestStore }) {
   const [listHidden, setListHidden] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
   const [listWidth, setListWidth] = useState(loadListWidth);
+  const [keepLog, setKeepLog] = useState(() => store.getKeepLog());
   /** The string viewer's height (px) once dragged. Kept for every request until the panel closes, never stored. */
   const [viewerHeight, setViewerHeight] = useState<number | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -82,6 +83,11 @@ export function App({ store }: { store: RequestStore }) {
   const resizeList = (width: number, done: boolean) => {
     setListWidth(width);
     if (done) saveListWidth(width);
+  };
+  const changeKeepLog = (keep: boolean) => {
+    setKeepLog(keep);
+    store.setKeepLog(keep);
+    saveKeepLog(keep);
   };
   const toggleSearch = () => {
     setSearchOpen(!searchOpen);
@@ -156,6 +162,13 @@ export function App({ store }: { store: RequestStore }) {
           >
             <SearchIcon />
           </button>
+          <div class="separator" />
+          {/* Named, placed and worded like the Network panel's (Chrome 154). */}
+          <label class="checkbox" title="Don’t clear the list on page reload / navigation">
+            <input type="checkbox" checked={keepLog} onChange={(event) => changeKeepLog(event.currentTarget.checked)} />
+            Keep log
+          </label>
+          <div class="separator" />
           <label class="filter">
             <FilterIcon />
             <input

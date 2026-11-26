@@ -132,10 +132,26 @@ async function waitForTransitTab(browser: Browser, devtools: Page, click: boolea
 
 /** Whether the DevTools window has the Transit tab; clicks it if `click` is set. */
 function findTransitTab(devtools: Page, click: boolean): Promise<boolean> {
-  return devtools.evaluate((click) => {
-    const find = (root: Document | ShadowRoot): HTMLElement | null => {
-      for (const el of root.querySelectorAll<HTMLElement>('[role="tab"]')) {
-        if (el.textContent?.trim() === "Transit") return el;
+  return findTab(devtools, "Transit", click);
+}
+
+/** Switches DevTools to one of its tabs (e.g. "Network"), as a click on the tab would. */
+export async function showDevtoolsTab(devtools: Page, name: string): Promise<void> {
+  if (!(await findTab(devtools, name, true))) throw new Error(`No ${name} tab in DevTools`);
+}
+
+/**
+ * Turns the Network panel's own "Keep log" on or off. Show the Network tab first: DevTools creates the panel's
+ * toolbar the first time it is shown.
+ */
+export async function setNetworkKeepLog(devtools: Page, on: boolean): Promise<void> {
+  const found = await devtools.evaluate((on) => {
+    const find = (root: Document | ShadowRoot): HTMLInputElement | null => {
+      for (const el of root.querySelectorAll("devtools-checkbox")) {
+        const input = el.shadowRoot?.querySelector("input");
+        if (input && el.shadowRoot?.textContent?.includes("Keep log") && el.getBoundingClientRect().width > 0) {
+          return input;
+        }
       }
       for (const el of root.querySelectorAll("*")) {
         const found = el.shadowRoot && find(el.shadowRoot);
@@ -143,14 +159,37 @@ function findTransitTab(devtools: Page, click: boolean): Promise<boolean> {
       }
       return null;
     };
-    const tab = find(document);
-    if (!tab) return false;
-    if (click) {
-      tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-      tab.click();
-    }
-    return true;
-  }, click);
+    const input = find(document);
+    if (input && input.checked !== on) input.click();
+    return input?.checked === on;
+  }, on);
+  if (!found) throw new Error("No Keep log checkbox in the Network panel");
+}
+
+function findTab(devtools: Page, name: string, click: boolean): Promise<boolean> {
+  return devtools.evaluate(
+    (name, click) => {
+      const find = (root: Document | ShadowRoot): HTMLElement | null => {
+        for (const el of root.querySelectorAll<HTMLElement>('[role="tab"]')) {
+          if (el.textContent?.trim() === name) return el;
+        }
+        for (const el of root.querySelectorAll("*")) {
+          const found = el.shadowRoot && find(el.shadowRoot);
+          if (found) return found;
+        }
+        return null;
+      };
+      const tab = find(document);
+      if (!tab) return false;
+      if (click) {
+        tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        tab.click();
+      }
+      return true;
+    },
+    name,
+    click,
+  );
 }
 
 /** Runs code inside the real Transit panel, where `chrome.devtools.*` is available. */

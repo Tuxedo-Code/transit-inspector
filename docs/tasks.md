@@ -334,16 +334,18 @@ Notes:
 
 From spec "Later". Not to be started until v1 is done:
 
-- [ ] Preserve log
+- [x] Keep log (was "Preserve log"; Chrome 154 renamed the Network panel's checkbox)
+  - A remembered toolbar checkbox, independent of the Network panel's (user's choice). `getHAR()` does keep earlier loads when the Network panel's "Keep log" is on, so the source now passes the current page (`pageref`) and `RequestStore.replace` decides; facts in spec "Capture and navigation".
+  - Covered by store unit tests, a UI test (remembered), real-DevTools tests (rows survive a reload and still decode; with ours off the list clears even when the Network panel keeps its log) and `keep-log-*` screenshots. Helpers `showDevtoolsTab` and `setNetworkKeepLog` are in `e2e/devtools.ts`.
 - [ ] Method and status filters
 - [ ] Wildcard/glob and regex filters
 - [ ] Hide non-Transit rows toggle
-- [ ] Watch a path across calls to one endpoint (see spec "Later"; the reload workflow needs Preserve log)
 - [ ] Keyboard navigation through requests
   - Why: rows in `src/ui/RequestList.tsx` can't be focused and have no key handling, so a request can't be opened without a mouse. The Network panel's request list works from the keyboard.
   - How: follow the Network panel wherever it has an equivalent. Measure it first with Puppeteer (Chrome 154), as for the Search pane: how the list gets focus (one tab stop or one per row), which keys move the selection (Up/Down, Home/End, PageUp/PageDown), whether moving the selection opens the request at once, the focus ring and the selected and focused row colors in both themes, and the ARIA roles. Our own additions: skip grayed (unselectable) rows. Spec "Later" also asks for this "while the list is hidden": settle with the user what that means first, since arrow keys in an editor must keep moving the cursor.
   - Update spec "Request list" and guide "Using the panel", and remove the item from spec "Later".
   - Done when: unit and e2e tests (Chrome and Brave) cover the keys and focus; screenshots of the focused list in light and dark look like the Network panel's; the panel can be used with the keyboard alone in real DevTools.
+- [ ] Watch a path across calls to one endpoint (see spec "Later"; the reload workflow needs "Keep log", now built)
 - [x] Resizable list/detail split
   - `src/ui/Splitter.tsx`; behavior measured from the Network panel's own splitter, see spec "Layout". Covered by UI tests; the drag (pointer capture across the CodeMirror panes) and persistence were also checked once in real DevTools.
 - [x] Cmd+F searches the open pane, never DevTools' bar:

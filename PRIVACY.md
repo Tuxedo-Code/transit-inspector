@@ -6,7 +6,7 @@ The Transit panel sees the requests and responses of the page you inspect, which
 
 - **Nothing leaves DevTools.** The extension makes no requests of its own: no telemetry, analytics, crash reports or third-party services.
 - **Nothing is kept.** Captured traffic stays in DevTools' memory and is gone when you close DevTools.
-- **Two settings are saved:** the view mode and the request list's width, in the extension's local storage.
+- **Three settings are saved:** the view mode, the request list's width and the "Keep log" checkbox, in the extension's local storage.
 
 ## How that is enforced
 

@@ -21,6 +21,25 @@ export function saveViewMode(mode: ViewMode): void {
   }
 }
 
+const KEEP_LOG_KEY = "transit-inspector:keep-log";
+
+/** The "Keep log" checkbox; off by default, like the Network panel's. */
+export function loadKeepLog(): boolean {
+  try {
+    return localStorage.getItem(KEEP_LOG_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function saveKeepLog(keep: boolean): void {
+  try {
+    localStorage.setItem(KEEP_LOG_KEY, String(keep));
+  } catch {
+    // Not remembering the checkbox is acceptable.
+  }
+}
+
 const LIST_WIDTH_KEY = "transit-inspector:list-width";
 
 /** The request list width (px) last set by dragging the splitter; null until the user resizes it. */

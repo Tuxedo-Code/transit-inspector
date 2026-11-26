@@ -130,4 +130,89 @@ describe("RequestStore", () => {
     expect(store.getRows()).toHaveLength(MAX_ROWS);
     expect(paths(store)[0]).toBe("/r5");
   });
+
+  describe("Keep log", () => {
+    const onPage = (pageref: string, path: string, startedMs: number): RawEntry => {
+      const entry = raw(path, startedMs);
+      entry.entry.pageref = pageref;
+      return entry;
+    };
+
+    it("is off by default: a page load drops the earlier load's rows", async () => {
+      const store = new RequestStore();
+      store.replace([onPage("page_1", "/a", 1)], "page_1");
+      await settle();
+      store.replace([onPage("page_2", "/b", 2)], "page_2");
+      await settle();
+      expect(store.getKeepLog()).toBe(false);
+      expect(paths(store)).toEqual(["/b"]);
+    });
+
+    it("when off, ignores earlier loads that DevTools itself kept (the Network panel's Keep log)", async () => {
+      const store = new RequestStore();
+      store.replace([onPage("page_1", "/a", 1)], "page_1");
+      await settle();
+      store.replace([onPage("page_2", "/b", 2), onPage("page_1", "/a", 1)], "page_2");
+      await settle();
+      expect(paths(store)).toEqual(["/b"]);
+    });
+
+    it("when on, keeps rows that a page load drops from DevTools' log", async () => {
+      const store = new RequestStore();
+      store.setKeepLog(true);
+      store.replace([onPage("page_1", "/a", 1), onPage("page_1", "/b", 1)], "page_1");
+      await settle();
+      store.replace([onPage("page_2", "/c", 2)], "page_2");
+      await settle();
+      expect(paths(store)).toEqual(["/a", "/b", "/c"]);
+    });
+
+    it("when on, also lists earlier loads DevTools kept, e.g. on the first backfill", async () => {
+      const store = new RequestStore();
+      store.setKeepLog(true);
+      store.replace([onPage("page_2", "/c", 2), onPage("page_1", "/a", 1)], "page_2");
+      await settle();
+      expect(paths(store)).toEqual(["/a", "/c"]);
+    });
+
+    it("turned off, drops nothing until the next page load", async () => {
+      const store = new RequestStore();
+      store.setKeepLog(true);
+      store.replace([onPage("page_1", "/a", 1)], "page_1");
+      await settle();
+      store.replace([onPage("page_2", "/b", 2)], "page_2");
+      await settle();
+      store.setKeepLog(false);
+      expect(paths(store)).toEqual(["/a", "/b"]);
+      store.replace([onPage("page_3", "/c", 3)], "page_3");
+      await settle();
+      expect(paths(store)).toEqual(["/c"]);
+    });
+
+    it("still clears on Clear, and keeps cleared rows hidden", async () => {
+      const store = new RequestStore();
+      store.setKeepLog(true);
+      store.replace([onPage("page_1", "/a", 1)], "page_1");
+      await settle();
+      store.clear();
+      store.replace([onPage("page_2", "/b", 2), onPage("page_1", "/a", 1)], "page_2");
+      await settle();
+      expect(paths(store)).toEqual(["/b"]);
+    });
+
+    it("still caps the list", async () => {
+      const store = new RequestStore();
+      store.setKeepLog(true);
+      store.replace(
+        Array.from({ length: MAX_ROWS }, (_, i) => onPage("page_1", `/r${i}`, i)),
+        "page_1",
+      );
+      await settle();
+      store.replace([onPage("page_2", "/new", MAX_ROWS)], "page_2");
+      await settle();
+      expect(store.getRows()).toHaveLength(MAX_ROWS);
+      expect(paths(store)[0]).toBe("/r1");
+      expect(paths(store).at(-1)).toBe("/new");
+    });
+  });
 });
