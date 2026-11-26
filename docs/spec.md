@@ -31,7 +31,7 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
 
 Binding, like the non-goals. Changing the promise, or loosening any of the enforcement below, is a spec change first. Enforced since T17.
 
-- **Promise.** The extension makes no network requests of its own: no telemetry, analytics or crash reporting, no remote code, no third-party services, no permissions in the manifest. Captured traffic lives only in the panel's memory and is gone when DevTools closes. The only stored values are UI preferences, the view mode and the request list width, in `localStorage` (`src/ui/settings.ts`).
+- **Promise.** The extension makes no network requests of its own: no telemetry, analytics or crash reporting, no remote code, no third-party services, no permissions in the manifest. Captured traffic lives only in the panel's memory and is gone when DevTools closes. The only stored values are UI preferences, the view mode, the request list width and the "Keep log" checkbox, in `localStorage` (`src/ui/settings.ts`).
 - **Chrome's install warning.** Chrome still lists "Read and change all your data on all websites" for the extension (Brave too). Chrome adds it to every extension with a `devtools_page`, because DevTools extensions *could* run code in inspected pages (`chrome.devtools.inspectedWindow.eval`); verified in T17 by comparing two otherwise empty manifests, with and without `devtools_page`. Transit Inspector never uses that API, and the build tripwire below keeps it that way. User-facing text must say "no permissions requested" and explain the warning, never claim "no permissions".
 - **1. CSP.** `manifest.json` sets `content_security_policy.extension_pages` (applies to `devtools.html` and `panel.html`):
 
@@ -85,6 +85,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - **Navigation: mirror DevTools' own log.** On `onNavigated`, re-read `getHAR()` and rebuild the list from it.
   - `onNavigated` also fires on SPA `history.pushState` and several times per reload, so it cannot mean "clear" by itself.
   - `getHAR()` keeps entries across `pushState` and drops them on a real page load, exactly like the Network panel.
+  - With the Network panel's own "Keep log" on, `getHAR()` keeps every earlier page load too (verified in Chrome 154). Each entry's `pageref` names its page load; `log.pages` has one page per real load, listed newest first, and `pushState` adds none. By the time `onNavigated` fires, `getHAR()` already lists the new page. The source passes the newest page (by start time) along with the rebuilt list, and our own "Keep log" decides what to keep (see "Request capture rules").
 - Request payload: `request.postData.text`. Response body: `getContent((content, encoding))`, where `encoding` is `""` for text.
 
 ## Request capture rules
@@ -101,7 +102,12 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - **Failed requests:**
   - 4xx/5xx responses with a Transit body are decoded like any other response;
   - requests that never got a response (network error, CORS, cancelled) are listed grayed.
-- **A real page load clears the list; SPA route changes do not** (see "Capture and navigation"). "Preserve log" is a later feature; mirroring `getHAR()` may already follow the Network panel's own "Preserve log" checkbox (unverified).
+- **A real page load clears the list; SPA route changes do not** (see "Capture and navigation"), unless **"Keep log"** is on:
+  - a toolbar checkbox named, worded, placed and drawn like the Network panel's (after the Search button, between separators; measured in Chrome 154). Off by default, and remembered (see "Privacy");
+  - on: a page load drops nothing. Rows from earlier loads keep their bodies (the panel holds them), so they still open and decode after DevTools has forgotten them. The 1,000-request cap still applies, and Clear still empties the list;
+  - off: a page load keeps only the new load's requests, even when the Network panel's own "Keep log" is on. The two checkboxes are independent, like the Network and Console panels' own;
+  - unchecking it drops nothing by itself; the next page load does, as in the Network panel;
+  - no marker between page loads: the Network panel's request table has none either (only its timeline overview marks the loads).
 - **Memory:**
   - Fetch the response body for every Fetch/XHR response whose content type is Transit, JSON-like or missing.
   - Sniff only the first few KB for Transit markers.
@@ -153,6 +159,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 - **Filter box:** case-insensitive substring match on the full URL (path plus query), applied as you type. Chronological order is kept.
 - Auto-scroll to new requests only when already scrolled to the bottom.
 - Clear button.
+- "Keep log" checkbox (see "Request capture rules").
 - Empty list shows "No Transit requests yet".
 - When navigation or Clear empties the list, the detail view resets.
 
@@ -228,6 +235,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
   - filter box;
   - Search pane;
   - clear button;
+  - "Keep log" checkbox;
   - row height;
   - selection highlight;
   - toolbar.
@@ -328,7 +336,6 @@ User-facing limitations are listed in [guide.md](guide.md#limitations) (the READ
 
 ## Later (not v1)
 
-- Preserve log across navigation.
 - Method and status filters.
 - Wildcard/glob and regex URL filters.
 - Toggle to hide non-Transit rows.
@@ -340,6 +347,6 @@ User-facing limitations are listed in [guide.md](guide.md#limitations) (the READ
 - Firefox support (see "Supported browsers" for the known gaps).
 - release-please with its own GitHub App or fine-grained token instead of `GITHUB_TOKEN`, so CI really runs on release PRs (today they show a failed run with zero jobs).
 - Intercept and override (requires `chrome.debugger`; see Non-goals).
-- Watch a path across calls to one endpoint. With the cursor on a value, list that path's value in every captured call to the same endpoint, with changes marked; clicking one opens that request at the same path. Group `/users/42` and `/users/43` as one endpoint by treating numeric, UUID and long hex path segments as wildcards. Re-running a call after a page reload needs "Preserve log".
+- Watch a path across calls to one endpoint. With the cursor on a value, list that path's value in every captured call to the same endpoint, with changes marked; clicking one opens that request at the same path. Group `/users/42` and `/users/43` as one endpoint by treating numeric, UUID and long hex path segments as wildcards. Re-running a call after a page reload needs "Keep log" on.
 
 Ideas that were evaluated and not built, with the reasons and what would change the verdict, are in [considered.md](considered.md). Check it before proposing a feature.

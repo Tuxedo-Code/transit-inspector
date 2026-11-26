@@ -38,7 +38,7 @@ Transit is a format for sending data between applications, most often Clojure an
 
 It sees requests made while DevTools is open, and decodes Transit JSON (transit+msgpack is listed but not decoded).
 
-Privacy: the extension makes no network requests of its own. No telemetry, analytics or third-party services, and its Content Security Policy blocks every connection from its pages. Captured traffic stays in DevTools' memory and is gone when you close DevTools; only the view mode and the request list's width are saved. It requests no permissions. Chrome still lists "Read and change all your data on all websites" for every DevTools extension, because DevTools extensions can run code in the page they inspect; Transit Inspector never does, and its build fails if that API appears in the code.
+Privacy: the extension makes no network requests of its own. No telemetry, analytics or third-party services, and its Content Security Policy blocks every connection from its pages. Captured traffic stays in DevTools' memory and is gone when you close DevTools; only the view mode, the request list's width and the "Keep log" checkbox are saved. It requests no permissions. Chrome still lists "Read and change all your data on all websites" for every DevTools extension, because DevTools extensions can run code in the page they inspect; Transit Inspector never does, and its build fails if that API appears in the code.
 
 Open source (MIT): https://github.com/Tuxedo-Code/transit-inspector
 ```

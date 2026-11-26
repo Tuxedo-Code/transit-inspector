@@ -228,6 +228,21 @@ describe("request list", () => {
     expect(await page.$eval(".empty", (empty) => empty.textContent)).toBe("No Transit requests yet");
     expect(await page.$(".detail")).toBeNull();
   });
+
+  it("remembers the Keep log checkbox", async () => {
+    const keepLog = () => page.$eval(".checkbox input", (input) => (input as HTMLInputElement).checked);
+    expect(await page.$eval(".checkbox", (label) => label.textContent)).toBe("Keep log");
+    expect(await keepLog()).toBe(false);
+    await page.click(".checkbox");
+    expect(await keepLog()).toBe(true);
+    await page.reload();
+    await page.waitForSelector(".request-list tbody tr");
+    expect(await keepLog()).toBe(true);
+    await page.click(".checkbox input");
+    await page.reload();
+    await page.waitForSelector(".request-list tbody tr");
+    expect(await keepLog()).toBe(false);
+  });
 });
 
 describe("detail view", () => {
@@ -1000,6 +1015,25 @@ describe("search all requests", () => {
 
 describe("screenshots for review", () => {
   for (const scheme of ["light", "dark"] as const) {
+    it(`renders the Keep log checkbox off, on, hovered and focused (${scheme})`, async () => {
+      await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: scheme }]);
+      const clip = { x: 0, y: 0, width: 520, height: 28 };
+      const shot = (state: string) =>
+        page.screenshot({ path: resolve(SCREENSHOTS, `keep-log-${state}-${scheme}.png`), clip });
+      await page.mouse.move(-1, -1);
+      await shot("off");
+      await page.click(".checkbox input");
+      await page.mouse.move(-1, -1);
+      await shot("on");
+      await page.hover(".checkbox input");
+      await shot("hover");
+      await page.mouse.move(-1, -1);
+      // Keyboard focus: Tab from the Search button lands on the checkbox.
+      await page.focus("button[aria-label=Search]");
+      await page.keyboard.press("Tab");
+      await shot("focus");
+    });
+
     it(`renders the main states (${scheme})`, async () => {
       await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: scheme }]);
       await screenshot(`list-${scheme}`);

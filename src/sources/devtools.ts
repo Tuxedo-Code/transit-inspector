@@ -16,11 +16,21 @@ function wrap(request: DevtoolsRequest): RawEntry {
   };
 }
 
+/** The id of the newest page load in DevTools' log. `getHAR()` lists pages newest first, but don't rely on it. */
+function currentPage(log: HARFormatLog): string | undefined {
+  let newest: { id: string; startedDateTime: string } | undefined;
+  for (const page of log.pages ?? []) {
+    if (!newest || Date.parse(page.startedDateTime) > Date.parse(newest.startedDateTime)) newest = page;
+  }
+  return newest?.id;
+}
+
 /**
  * Requests from DevTools (spec "Capture and navigation"):
  * subscribe to finished requests, backfill from getHAR(), and rebuild from getHAR() on every navigation.
- * DevTools' own log keeps entries across SPA route changes and drops them on real page loads, so mirroring it
- * gives the right clearing behavior. The log also holds requests still in flight; the entry from `onRequestFinished`
+ * DevTools' own log keeps entries across SPA route changes and drops them on real page loads, unless the Network
+ * panel's "Keep log" is on; then each entry's `pageref` tells the page loads apart, and the store decides what to keep
+ * (our own "Keep log"). The log also holds requests still in flight; the entry from `onRequestFinished`
  * replaces what was read from it. Requests finishing while a rebuild is in flight are re-added after it.
  */
 export function devtoolsSource(network: Network = chrome.devtools.network): Source {
@@ -38,7 +48,7 @@ export function devtoolsSource(network: Network = chrome.devtools.network): Sour
         network.getHAR((log) => {
           const finishedMeanwhile = inFlight ?? [];
           inFlight = null;
-          sink.replace((log.entries as DevtoolsRequest[]).map(wrap));
+          sink.replace((log.entries as DevtoolsRequest[]).map(wrap), currentPage(log));
           sink.add(finishedMeanwhile);
         });
       };

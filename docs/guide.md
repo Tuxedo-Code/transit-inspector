@@ -6,7 +6,7 @@ How to use the Transit panel, what it can't do, and what to try when something l
 
 Shortcuts are written for macOS. On Windows and Linux, use Ctrl instead of Cmd.
 
-**Request list.** The left side lists the page's Fetch/XHR requests in the order they started, like the Network panel. Requests carrying Transit are clickable; the others are grayed out. Transit is detected by its content type, or by sniffing bodies served as `application/json`. Type in the filter box to match part of the URL. The Clear button empties the list.
+**Request list.** The left side lists the page's Fetch/XHR requests in the order they started, like the Network panel. Requests carrying Transit are clickable; the others are grayed out. Transit is detected by its content type, or by sniffing bodies served as `application/json`. Type in the filter box to match part of the URL. The Clear button empties the list. A page reload clears it too, unless you turn on "Keep log" in the toolbar. Requests from earlier page loads then stay, and they still open and decode. The checkbox is remembered, and it works on its own: the Network panel's "Keep log" doesn't change it.
 
 **Payload and Response.** Click a request to open it, then switch between its request payload and its response body.
 
@@ -41,7 +41,7 @@ With the cursor on any string, Enter opens it too. Select and copy in the viewer
 
 - Only requests made while DevTools is open for that tab. Requests from before DevTools was opened are never seen. Requests made before you click the Transit tab are fine.
 - Only Fetch/XHR requests. WebSocket messages, documents, scripts and other resource types are not shown.
-- A page reload clears the list, like the Network panel. SPA route changes don't. There is no "Preserve log" yet.
+- A page reload clears the list, like the Network panel, unless "Keep log" is on. SPA route changes don't.
 - At most the last 1,000 requests are kept; older ones drop off.
 - Requests started in the same millisecond can briefly appear in the order they finished instead of the order they started, right after a reload.
 

@@ -26,6 +26,8 @@
   /* A toggle button that is on, e.g. regular expressions in the Search pane. */
   --toggled: #1b6ef3;
   --hover: rgb(25 27 31 / 6%);
+  /* A checkbox while pressed. */
+  --ripple: rgb(25 27 31 / 8%);
   --selected-row: #d3e3fd;
   --neutral-container: #e8eaf2;
   --primary: #0b57d0;
@@ -59,6 +61,7 @@
   --icon: #c2c3cc;
   --toggled: #7cacf8;
   --hover: rgb(249 250 252 / 10%);
+  --ripple: rgb(249 250 252 / 16%);
   --selected-row: #004a77;
   --neutral-container: #363840;
   --primary: #a8c7fa;
@@ -93,6 +96,7 @@
     --icon: #c2c3cc;
     --toggled: #7cacf8;
     --hover: rgb(249 250 252 / 10%);
+    --ripple: rgb(249 250 252 / 16%);
     --selected-row: #004a77;
     --neutral-container: #363840;
     --primary: #a8c7fa;
@@ -190,6 +194,57 @@ button {
 
 .icon-button[aria-pressed="true"] {
   color: var(--primary);
+}
+
+/* A toolbar checkbox, as DevTools draws "Keep log": a native box in its accent color, a circle while hovered or
+   pressed, and a rounded ring for keyboard focus (measured in Chrome 154). */
+.checkbox {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 26px;
+  padding-right: 5px;
+  color: var(--icon);
+  white-space: nowrap;
+}
+
+.checkbox input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin: 6px;
+  outline: none;
+  accent-color: var(--toggled);
+}
+
+.checkbox input:hover::after,
+.checkbox input:active::before {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.checkbox input:hover::after {
+  background: var(--hover);
+}
+
+.checkbox input:active::before {
+  background: var(--ripple);
+}
+
+.checkbox input:focus-visible::before {
+  content: "";
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--primary);
+  border-radius: 5px;
 }
 
 .filter {

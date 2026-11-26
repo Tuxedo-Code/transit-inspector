@@ -3,7 +3,16 @@ import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Browser, Page } from "puppeteer";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { devtoolsUi, launchWithExtension, MOD, openPageWithTransitPanel, type Panel, pressShortcut } from "./devtools";
+import {
+  devtoolsUi,
+  launchWithExtension,
+  MOD,
+  openPageWithTransitPanel,
+  type Panel,
+  pressShortcut,
+  setNetworkKeepLog,
+  showDevtoolsTab,
+} from "./devtools";
 import { IN_FLIGHT_MS, startTestServer, type TestServer, TRANSIT_BODY } from "./test-server";
 
 let server: TestServer;
@@ -281,6 +290,42 @@ describe("the Transit panel in real DevTools", () => {
     await panel.waitFor<string[]>(ROW_NAMES, (names) => sameList(sorted)([...names].sort()));
     const detailOpen = await panel.evaluate<boolean>(`Boolean(document.querySelector(".detail"))`);
     expect(detailOpen).toBe(false);
+  });
+
+  it("keeps the earlier page load with Keep log on, and its requests still open and decode", async () => {
+    await panel.evaluate(`document.querySelector(".checkbox input").click()`);
+    await page.reload();
+    const twice = [...ON_LOAD, ...ON_LOAD].sort();
+    await panel.waitFor<string[]>(ROW_NAMES, (names) => sameList(twice)([...names].sort()));
+    // The first "transit" row is the earlier load's (rows are in start order); DevTools itself no longer has it.
+    await panel.evaluate(
+      `[...document.querySelectorAll(".request-list tbody tr")].find((tr) => tr.cells[0].textContent === "transit").click()`,
+    );
+    await panel.waitFor<string>(`document.querySelector(".cm-content")?.innerText ?? ""`, (text) =>
+      text.includes(":user/id"),
+    );
+    await panel.evaluate(`document.querySelector(".detail button[aria-label=Close]")?.click()`);
+  });
+
+  it("with Keep log off, clears on a page load even when the Network panel keeps its log", async () => {
+    await panel.evaluate(`document.querySelector(".checkbox input").click()`);
+    await showDevtoolsTab(devtools, "Network");
+    await vi.waitFor(() => setNetworkKeepLog(devtools, true), { timeout: 5_000 });
+    await showDevtoolsTab(devtools, "Transit");
+    try {
+      await page.reload();
+      const sorted = [...ON_LOAD].sort();
+      await panel.waitFor<string[]>(ROW_NAMES, (names) => sameList(sorted)([...names].sort()));
+      // DevTools' own log does keep the earlier load, so the panel left it out itself.
+      const pages = await panel.evaluate<number>(
+        "new Promise((resolve) => chrome.devtools.network.getHAR((log) => resolve(log.pages.length)))",
+      );
+      expect(pages).toBeGreaterThan(1);
+    } finally {
+      await showDevtoolsTab(devtools, "Network");
+      await setNetworkKeepLog(devtools, false);
+      await showDevtoolsTab(devtools, "Transit");
+    }
   });
 
   // After the tests above, so everything they did ran under the CSP.

@@ -25,6 +25,8 @@ export class RequestStore implements Sink {
   /** The newest entry being converted per request; an older conversion that finishes later is discarded. */
   private readonly latest = new Map<string, RawEntry>();
   private generation = 0;
+  /** "Keep log": a `replace` drops nothing, so rows from earlier page loads stay. */
+  private keepLog = false;
   private readonly listeners = new Set<Listener>();
 
   subscribe(listener: Listener): () => void {
@@ -42,14 +44,35 @@ export class RequestStore implements Sink {
     this.ingest(entries, true);
   }
 
-  replace(entries: RawEntry[]): void {
+  getKeepLog(): boolean {
+    return this.keepLog;
+  }
+
+  /** Turning it off drops nothing by itself; the next page load does, like the Network panel's "Keep log". */
+  setKeepLog(keep: boolean): void {
+    this.keepLog = keep;
+  }
+
+  /**
+   * Without "Keep log", the list becomes the current page load's entries: rows missing from them are dropped, and
+   * entries from earlier loads that DevTools kept (its own "Keep log") are ignored. With it, nothing is dropped.
+   */
+  replace(entries: RawEntry[], currentPage?: string): void {
+    if (!this.keepLog && currentPage !== undefined) {
+      entries = entries.filter((raw) => raw.entry.pageref === undefined || raw.entry.pageref === currentPage);
+    }
     const ids = new Set(entries.map((raw) => entryId(raw.entry)));
     for (const id of this.cleared) if (!ids.has(id)) this.cleared.delete(id);
-    // Keep rows that are still present so their bodies aren't read again.
-    for (const id of this.known.keys()) if (!ids.has(id)) this.known.delete(id);
-    // The replacement list is authoritative for order too (DevTools lists entries in start order).
-    this.arrival.clear();
-    for (const id of ids) this.arrival.set(id, this.nextArrival++);
+    if (this.keepLog) {
+      // Rows kept from earlier loads keep their place among requests started in the same millisecond.
+      for (const id of ids) if (!this.arrival.has(id)) this.arrival.set(id, this.nextArrival++);
+    } else {
+      // Keep rows that are still present so their bodies aren't read again.
+      for (const id of this.known.keys()) if (!ids.has(id)) this.known.delete(id);
+      // The replacement list is authoritative for order too (DevTools lists a page load's entries in start order).
+      this.arrival.clear();
+      for (const id of ids) this.arrival.set(id, this.nextArrival++);
+    }
     this.latest.clear();
     this.generation++;
     this.rows = [...this.known.values()].sort(this.byStart);
