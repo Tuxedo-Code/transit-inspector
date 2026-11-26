@@ -67,11 +67,18 @@ function toNode(value: unknown): EdnNode {
     return { type: "map", entries: value.entries.map(([k, v]) => [toNode(k), toNode(v)]) };
   if (value instanceof Collection) return { type: value.kind, items: value.items.map(toNode) };
   if (value instanceof Char) return { type: "char", value: value.value };
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime())
-      ? { type: "inst", value: "invalid", problem: { severity: "error", message: "Invalid date" } }
-      : { type: "inst", value: value.toISOString() };
-  }
+  if (value instanceof Date) return dateNode(value);
+  return transitNode(value);
+}
+
+function dateNode(date: Date): EdnNode {
+  return Number.isNaN(date.getTime())
+    ? { type: "inst", value: "invalid", problem: { severity: "error", message: "Invalid date" } }
+    : { type: "inst", value: date.toISOString() };
+}
+
+/** Values transit-js decodes to its own types: keywords, symbols, UUIDs, URIs, big numbers, tagged values. */
+function transitNode(value: unknown): EdnNode {
   if (transit.isKeyword(value)) return { type: "keyword", value: String(value).replace(/^:/, "") };
   if (transit.isSymbol(value)) return { type: "symbol", value: String(value) };
   if (transit.isUUID(value)) return { type: "uuid", value: String(value) };
@@ -79,22 +86,23 @@ function toNode(value: unknown): EdnNode {
   if (transit.isBigInt(value)) return { type: "bigint", value: (value as { rep: string }).rep };
   if (transit.isBigDec(value)) return { type: "bigdec", value: (value as { rep: string }).rep };
   if (transit.isURI(value)) return { type: "uri", value: (value as { rep: string }).rep };
-  if (transit.isTaggedValue(value)) {
-    const { tag, rep } = value as { tag: string; rep: unknown };
-    if (tag === "ratio") {
-      const ratio = ratioNode(rep);
-      if (ratio) return ratio;
-    }
-    const node: EdnNode = { type: "tagged", tag, value: toNode(rep) };
-    if (!KNOWN_TAGS.has(tag))
-      node.problem = { severity: "warning", message: `Unknown Transit tag "${tag}": shown as #${tag}` };
-    return node;
-  }
+  if (transit.isTaggedValue(value)) return taggedNode(value as { tag: string; rep: unknown });
   return {
     type: "string",
     value: String(value),
     problem: { severity: "warning", message: "Unrecognized decoded value, shown as a string" },
   };
+}
+
+function taggedNode({ tag, rep }: { tag: string; rep: unknown }): EdnNode {
+  if (tag === "ratio") {
+    const ratio = ratioNode(rep);
+    if (ratio) return ratio;
+  }
+  const node: EdnNode = { type: "tagged", tag, value: toNode(rep) };
+  if (!KNOWN_TAGS.has(tag))
+    node.problem = { severity: "warning", message: `Unknown Transit tag "${tag}": shown as #${tag}` };
+  return node;
 }
 
 function numberNode(value: number): EdnNode {
