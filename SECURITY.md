@@ -6,7 +6,7 @@ Please report vulnerabilities privately through GitHub: open the [Security tab](
 
 ## Supported versions
 
-Only the [latest release](https://github.com/Tuxedo-Code/transit-inspector/releases/latest) gets fixes. Installs from a release zip don't update themselves, so update by installing the newest zip.
+Only the [latest release](https://github.com/Tuxedo-Code/transit-inspector/releases/latest) gets fixes. Installs from the [Chrome Web Store](https://chromewebstore.google.com/detail/transit-inspector/joifcbakodflahdjmbdjjlcolaeppehm) update themselves once a release reaches the store. Installs from a release zip don't, so update them by installing the newest zip.
 
 ## What's in scope
 

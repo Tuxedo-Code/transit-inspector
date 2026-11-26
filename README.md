@@ -22,12 +22,16 @@ All features and shortcuts: [docs/guide.md](docs/guide.md).
 
 ## Install
 
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/transit-inspector/joifcbakodflahdjmbdjjlcolaeppehm) (Brave installs from there too), then open DevTools on any page. The **Transit** tab is next to Network, or under `»` if DevTools is narrow. Store installs update automatically.
+
+Or install a release zip:
+
 1. Download `transit-inspector-<version>.zip` from the [latest release](https://github.com/Tuxedo-Code/transit-inspector/releases/latest) and unzip it into a folder you'll keep.
 2. Open `chrome://extensions` (in Brave: `brave://extensions`) and turn on **Developer mode**.
 3. Click **Load unpacked** and select the folder.
-4. Open DevTools on any page. The **Transit** tab is next to Network, or under `»` if DevTools is narrow.
+4. Open DevTools on any page and find the **Transit** tab.
 
-To update, replace the folder's contents, click reload on the extension's card, then reopen DevTools. Other Chromium browsers likely work but aren't tested; Firefox and Safari aren't supported. To build it yourself, see [CONTRIBUTING.md](CONTRIBUTING.md).
+To update a zip install, replace the folder's contents, click reload on the extension's card, then reopen DevTools. Other Chromium browsers likely work but aren't tested; Firefox and Safari aren't supported. To build it yourself, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy
 

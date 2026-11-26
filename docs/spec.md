@@ -2,7 +2,7 @@
 
 Source of truth for product and architecture decisions. If an implementation needs to deviate, update this file in the same change and say why.
 
-Last updated: 2026-10-21
+Last updated: 2026-11-26
 
 ## Goal
 
@@ -24,7 +24,7 @@ Primary use: open DevTools on an app that talks Transit to its backend, click a 
 - No WebSocket traffic.
 - No `application/transit+msgpack` decoding (shown as unsupported).
 - No capture while DevTools is closed.
-- No self-signed `.crx`. Users install from the release zip, or from the Chrome Web Store once it is listed (see "Releases").
+- No self-signed `.crx`. Users install from the Chrome Web Store, or from the release zip (see "Install").
 - No synced collapse/fold state between the EDN and Transit panes.
 
 ## Privacy
@@ -60,7 +60,7 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 
 ## Architecture
 
-- `manifest.json` (MV3) declares `devtools_page: devtools.html`, and `homepage_url` for the GitHub repo: Chrome, Brave and Edge open it from the first item of the extension's menu (right-click in the toolbar or the puzzle menu) and from "Open extension website" on its details page. Once the extension is on the Web Store, that menu item opens the repo instead of the store listing; the details page keeps "View in Chrome Web Store". No permissions, no host permissions, no background service worker, no content scripts, and a CSP that blocks network access (see "Privacy").
+- `manifest.json` (MV3) declares `devtools_page: devtools.html`, and `homepage_url` for the GitHub repo: Chrome, Brave and Edge open it from the first item of the extension's menu (right-click in the toolbar or the puzzle menu) and from "Open extension website" on its details page. For the Web Store install, that menu item therefore opens the repo instead of the store listing; the details page keeps "View in Chrome Web Store". No permissions, no host permissions, no background service worker, no content scripts, and a CSP that blocks network access (see "Privacy").
 - `devtools.html` registers the panel with `chrome.devtools.panels.create("Transit", ...)` pointing at `panel.html`.
 - The panel reads traffic from `chrome.devtools.network` (`onRequestFinished`, `getHAR`, `request.getContent()`, `onNavigated`).
 - **Data source boundary.** The UI consumes requests through a small interface with two implementations:
@@ -254,9 +254,11 @@ Binding, like the non-goals. Changing the promise, or loosening any of the enfor
 
 The npm scripts are listed in [CONTRIBUTING.md "Commands"](../CONTRIBUTING.md#commands).
 
-## Install (no store)
+## Install
 
-Users unzip the release zip and load it with "Load unpacked" (steps in the [README](../README.md#install)). Self-signed `.crx` files are not installable on Mac/Windows Chrome without enterprise policy, so they are not used.
+- **Chrome Web Store** (the main path): [Transit Inspector](https://chromewebstore.google.com/detail/transit-inspector/joifcbakodflahdjmbdjjlcolaeppehm). Brave installs from it too. Store installs update automatically once a release has been uploaded (see "Releases").
+- **Release zip** (the alternative: a specific version, a build checked with its attestation, or a browser without the store): users unzip it and load it with "Load unpacked" (steps in the [README](../README.md#install)). These installs never update themselves.
+- Self-signed `.crx` files are not installable on Mac/Windows Chrome without enterprise policy, so they are not used.
 
 ## Releases
 
@@ -288,7 +290,7 @@ In place since T18.
 - **Actions** are pinned to full commit SHAs with a version comment (Dependabot updates both), checkouts use `persist-credentials: false`, and the `check` job has no secrets: Dependabot PRs run new dependency code there.
 - **Release provenance:** the release job attests the zip with `actions/attest-build-provenance`, after the upload so a failure can't leave a release without its zip (attestations need a public repo, which it is). Users verify a download with `gh attestation verify transit-inspector-<version>.zip -R Tuxedo-Code/transit-inspector`. It proves where the zip was built, not that the code is safe.
 - **Repo settings:** Dependabot alerts and security updates, secret scanning with push protection, private vulnerability reporting. `SECURITY.md` says how to report.
-- **Note:** unpacked installs never auto-update, so dependency releases only reach users who reinstall. With a Web Store listing every merged release reaches users automatically, which makes the manual merge more important.
+- **Note:** unpacked installs never auto-update, so dependency releases only reach users who reinstall. Web Store installs get every release automatically once it is uploaded to the store (by hand for now, see "Releases"), which makes the manual merge more important.
 
 ## Testing
 
