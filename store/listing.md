@@ -1,5 +1,7 @@
 # Chrome Web Store listing
 
+Live at [chromewebstore.google.com/detail/transit-inspector/joifcbakodflahdjmbdjjlcolaeppehm](https://chromewebstore.google.com/detail/transit-inspector/joifcbakodflahdjmbdjjlcolaeppehm).
+
 What to enter in the [developer dashboard](https://chrome.google.com/webstore/devconsole), field by field. Keep it in sync with the README and `PRIVACY.md`: every claim here must stay true of the shipped extension (spec "Privacy").
 
 The images in this folder come from `npm run build && node store/make-images.ts` (screenshots from the real extension in real DevTools, plus the promo tile). Regenerate them on macOS with a retina display, where the fonts match DevTools there, when the UI changes. The screenshots are zoomed 1.6x so their text is readable in the store, and each one shows a different feature.

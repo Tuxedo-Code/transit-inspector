@@ -338,8 +338,12 @@ From spec "Later". Not to be started until v1 is done:
 - [ ] Method and status filters
 - [ ] Wildcard/glob and regex filters
 - [ ] Hide non-Transit rows toggle
-- [ ] Keyboard up/down navigation through requests
 - [ ] Watch a path across calls to one endpoint (see spec "Later"; the reload workflow needs Preserve log)
+- [ ] Keyboard navigation through requests
+  - Why: rows in `src/ui/RequestList.tsx` can't be focused and have no key handling, so a request can't be opened without a mouse. The Network panel's request list works from the keyboard.
+  - How: follow the Network panel wherever it has an equivalent. Measure it first with Puppeteer (Chrome 154), as for the Search pane: how the list gets focus (one tab stop or one per row), which keys move the selection (Up/Down, Home/End, PageUp/PageDown), whether moving the selection opens the request at once, the focus ring and the selected and focused row colors in both themes, and the ARIA roles. Our own additions: skip grayed (unselectable) rows. Spec "Later" also asks for this "while the list is hidden": settle with the user what that means first, since arrow keys in an editor must keep moving the cursor.
+  - Update spec "Request list" and guide "Using the panel", and remove the item from spec "Later".
+  - Done when: unit and e2e tests (Chrome and Brave) cover the keys and focus; screenshots of the focused list in light and dark look like the Network panel's; the panel can be used with the keyboard alone in real DevTools.
 - [x] Resizable list/detail split
   - `src/ui/Splitter.tsx`; behavior measured from the Network panel's own splitter, see spec "Layout". Covered by UI tests; the drag (pointer capture across the CodeMirror panes) and persistence were also checked once in real DevTools.
 - [x] Cmd+F searches the open pane, never DevTools' bar:
@@ -406,12 +410,20 @@ From spec "Later". Not to be started until v1 is done:
   - Why: PRs opened with `GITHUB_TOKEN` trigger no workflows, so every release PR shows a failed CI run with zero jobs, and CI never checks the release PR itself.
   - How: a GitHub App (preferred: scoped, short-lived tokens via `actions/create-github-app-token`) or a fine-grained PAT with contents and pull-requests write, passed as `token:` to `release-please-action`. Keep the secret out of the `check` job.
   - Done when: a release PR shows a real, green CI run, and merging it still releases with the zip and its attestation.
-- [~] Chrome Web Store listing: icons (128px), listing assets, first upload by hand from a release zip, then optionally a CI job that uploads each release zip through the Web Store API
+- [x] Chrome Web Store listing: icons (128px), listing assets, first upload by hand from a release zip
   - Done in the repo: icons, `store/listing.md` (every field and the privacy answers), screenshots and promo tile (spec "Releases").
-  - Left, by the user: developer account ($5, 2-step verification; decide personal or Tuxedo-Code group publisher), then the first upload of the first release zip that has icons, filled in from `store/listing.md`.
-  - Done when: the listing is live. Then add the store link to README "Install" (store first, zip as the alternative) and spec "Install", and move the CI upload job to its own task.
+  - Done by the user: developer account and the first upload. The listing is live (link in spec "Install"); README "Install" puts the store first, the zip second. The CI upload is its own task below.
   - `make-images.ts` needs `--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable`: Chrome 154 blocks plain http to a public host name (`ERR_BLOCKED_BY_CLIENT`), even when `--host-resolver-rules` maps it to localhost.
   - Screenshots are zoomed 1.6x (DevTools at 800x500) since 1x text was unreadable in the store. There are 5, one feature each: EDN with the path, side by side, a string as text, a lint tooltip, search. The lint tooltip closes when the theme changes, so set the theme before hovering. The string chip opens on mousedown, so use the real mouse rather than `.click()`.
+- [ ] Upload each release to the Chrome Web Store from CI (spec "Later")
+  - Why: every release is uploaded by hand in the developer dashboard, so store users fall behind the GitHub releases. Store installs update automatically, so this is how fixes reach most users.
+  - How: a step in the `release` job, after the attestation and only when a release was created, that uploads the same zip through the Chrome Web Store API and submits it for review. Prefer a service account if the API takes one, otherwise an OAuth refresh token. The credentials live in a GitHub environment that only the `release` job uses, never in `check`, which runs Dependabot's dependency code.
+  - Update spec "Releases" and "Later", and `store/listing.md` "Package".
+  - Done when: merging a release PR puts that version into store review with no manual step, and the GitHub Release still gets its zip and attestation.
+- [ ] Merge Dependabot PR #19 (dev group)
+  - Why: open since 2026-11-01. Its `check` job fails at lint: Biome 2.5.15 -> 2.6.3 formats 5 files differently, so unit and e2e never ran on it. It also bumps puppeteer 25.12 -> 25.16, vite, vitest, `@types/chrome` and `@types/node`.
+  - How: on the PR branch, `npm run format` and check the diff is formatting only; commit it as `chore(deps-dev):`; then lint, typecheck, unit and e2e locally (Chrome and Brave). Merge by hand once CI is green (spec "Dependencies and supply chain").
+  - Done when: merged with CI green.
 - [ ] Firefox support ("maybe"; see spec "Supported browsers"):
   - Check what Firefox's `devtools.network` HAR entries contain. If `_resourceType` is missing, find another way to tell Fetch/XHR apart, or list every request that carries Transit.
   - Check the panel, CodeMirror and the clipboard fallback in Firefox DevTools, in both themes.
