@@ -737,6 +737,70 @@ describe("find bar", () => {
     await waitForCount(".pane", "");
   });
 
+  it("shows a selection over a match in the selection color, but the current match in its own", async () => {
+    /** The color painted behind the character at `offset` of the EDN pane, and the color of each CSS variable. */
+    const painted = (offset: number) =>
+      page.$eval(
+        ".pane .cm-content",
+        (content, offset) => {
+          const { view } = (content as unknown as ViewDom).cmTile.root;
+          const coords = view.coordsAtPos(offset, 1);
+          if (!coords) throw new Error(`Offset ${offset} isn't drawn`);
+          let element = document.elementFromPoint(coords.left + 2, (coords.top + coords.bottom) / 2);
+          // The first background up from the text; the selection layer under the text doesn't count.
+          while (element && getComputedStyle(element).backgroundColor === "rgba(0, 0, 0, 0)") {
+            element = element.parentElement;
+          }
+          const color = (name: string) => {
+            const probe = document.createElement("div");
+            probe.style.backgroundColor = `var(${name})`;
+            document.body.append(probe);
+            const value = getComputedStyle(probe).backgroundColor;
+            probe.remove();
+            return value;
+          };
+          return {
+            at: element ? getComputedStyle(element).backgroundColor : null,
+            selection: color("--selection"),
+            current: color("--search-match-current"),
+          };
+        },
+        offset,
+      );
+    const coordsOf = (offset: number) =>
+      page.$eval(
+        ".pane .cm-content",
+        (content, offset) => {
+          const coords = (content as unknown as ViewDom).cmTile.root.view.coordsAtPos(offset, 1);
+          if (!coords) throw new Error(`Offset ${offset} isn't drawn`);
+          return { x: coords.left + 1, y: (coords.top + coords.bottom) / 2 };
+        },
+        offset,
+      );
+
+    await selectRow("42");
+    await openFindBar(".pane");
+    await page.keyboard.type(":item/sku");
+    await waitForCount(".pane", "3 matches");
+    const { doc } = await ednSelection();
+    const first = doc.indexOf(":item/sku");
+    // Selecting with the mouse from before the match into its middle.
+    const start = await coordsOf(first - 2);
+    const end = await coordsOf(first + 5);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 5 });
+    await page.mouse.up();
+    let colors = await painted(first + 2);
+    expect(colors.at).toBe(colors.selection);
+
+    // Stepping to a match selects it, and it keeps the current match's color.
+    await pressMod("g");
+    await waitForCount(".pane", "2 of 3");
+    colors = await painted(doc.indexOf(":item/sku", first + 1) + 2);
+    expect(colors.at).toBe(colors.current);
+  });
+
   it("agrees with the Search pane, and counts a result opened from it", async () => {
     await page.click("button[aria-label=Search]");
     await page.keyboard.type(":item/sku");
@@ -1045,6 +1109,13 @@ describe("screenshots for review", () => {
       await pressMod("f");
       await page.keyboard.type("order");
       await screenshot(`search-${scheme}`);
+      // A selection that starts and ends inside matches, over the ones between.
+      await page.$eval(".pane .cm-content", (content) => {
+        const { view } = (content as unknown as ViewDom).cmTile.root;
+        const doc = view.state.doc.toString();
+        view.dispatch({ selection: { anchor: doc.indexOf(":order/id") + 3, head: doc.indexOf(":order/status") + 4 } });
+      });
+      await screenshot(`search-select-${scheme}`);
       await page.keyboard.press("Escape");
       // The find bar side by side in a narrow panel, with a match selected.
       await page.setViewport({ width: 560, height: 650, deviceScaleFactor: 2 });
