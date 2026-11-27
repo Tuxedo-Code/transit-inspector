@@ -10,7 +10,7 @@ import {
 } from "@codemirror/language";
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
 import { highlightSelectionMatches, SearchQuery, search, searchKeymap, setSearchQuery } from "@codemirror/search";
-import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
+import { EditorSelection, EditorState, type Extension, Prec } from "@codemirror/state";
 import {
   Decoration,
   drawSelection,
@@ -78,6 +78,9 @@ const viewerTheme = EditorView.theme({
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection": {
     backgroundColor: "var(--selection) !important",
   },
+  ".cm-selectedText": { backgroundColor: "var(--selection)" },
+  // The current find match is the selection, and keeps its own color to show where the find is.
+  ".cm-searchMatch-selected .cm-selectedText": { backgroundColor: "transparent" },
   ".cm-selectionMatch": { backgroundColor: "var(--selection-match)" },
   ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": {
     backgroundColor: "var(--selection-match)",
@@ -256,6 +259,24 @@ function stringChips(chips: StringChips): Extension[] {
   ];
 }
 
+const selectedTextMark = Decoration.mark({ class: "cm-selectedText" });
+
+/**
+ * The selected text, marked so the selection color covers highlights on it (find matches, selection matches,
+ * brackets). drawSelection paints the selection behind the text, under those highlights' own backgrounds; the mark,
+ * at the highest precedence, is the innermost element and paints over them.
+ */
+const selectedText = Prec.highest(
+  EditorView.decorations.compute(["selection"], (state) =>
+    Decoration.set(
+      state.selection.ranges
+        .filter((range) => !range.empty)
+        .map((range) => selectedTextMark.range(range.from, range.to)),
+      true,
+    ),
+  ),
+);
+
 /** Double-clicking a bracket selects its form; Cmd+I expands the selection form by form, like Calva. */
 function formSelection(forms: Forms): Extension[] {
   return [
@@ -303,6 +324,7 @@ function extensionsFor({
     lineNumbers(),
     ...LANGUAGE[language],
     drawSelection(),
+    selectedText,
     highlightSelectionMatches(),
     search({ top: true, createPanel: (view) => new FindBar(view) }),
     // Before the default keymap, so their Cmd+I and Enter win.
