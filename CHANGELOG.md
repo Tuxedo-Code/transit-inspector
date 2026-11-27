@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.9.1...v0.10.0) (2026-11-27)
+
+
+### Features
+
+* add a "Keep log" checkbox that keeps requests across page loads ([8baddfc](https://github.com/Tuxedo-Code/transit-inspector/commit/8baddfc35e9dca9619c062e0804782c351d2f4b0))
+* link the GitHub repo from the extension's menu ([2e09be0](https://github.com/Tuxedo-Code/transit-inspector/commit/2e09be059a4d263664fd5c12e6ac5ce490b911c3))
+
+
+### Bug Fixes
+
+* show malformed Transit chars named like object properties as written ([50695c2](https://github.com/Tuxedo-Code/transit-inspector/commit/50695c235c3ed70a65553b6be813d1ca2ac09a5c))
+
 ## [0.9.1](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.9.0...v0.9.1) (2026-11-02)
 
 
