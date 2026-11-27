@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.10.0...v0.10.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* let the text selection cover find highlights in the code viewers ([69d63c9](https://github.com/Tuxedo-Code/transit-inspector/commit/69d63c93bece1c3f9cfef6ef496cef3bff21141d))
+
 ## [0.10.0](https://github.com/Tuxedo-Code/transit-inspector/compare/v0.9.1...v0.10.0) (2026-11-27)
 
 
